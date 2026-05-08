@@ -1,0 +1,16 @@
+{
+  "hosting": {
+    "public": "out",
+    "ignore": ["firebase.json", "**/.*", "**/node_modules/**"]
+  },
+  "firestore": {
+    "rules": "firestore.rules",
+    "indexes": "firestore.indexes.json"
+  },
+  "extensions": {
+    "firestore-stripe-payments": "invertase/firestore-stripe-payments@0.3.6"
+  },
+  "remoteConfig": {
+    "template": "remote-config.template.json"
+  }
+}

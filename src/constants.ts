@@ -1,0 +1,43 @@
+import { 
+  Layout, 
+  FileText, 
+  Image as ImageIcon, 
+  Type, 
+  MessageSquare, 
+  Edit3, 
+  Globe, 
+  PenTool, 
+  Rocket, 
+  Link, 
+  Folder, 
+  BarChart3,
+  TrendingUp,
+  ShieldCheck,
+  Video,
+  Youtube,
+  User
+} from 'lucide-react';
+import { NavItem } from './types';
+
+export const NAV_ITEMS: NavItem[] = [
+  { id: 'website-builder', title: 'Website Builder', icon: Layout, path: '/website-builder' },
+  { id: 'templates', title: 'Templates', icon: FileText, path: '/templates' },
+  { id: 'seo-sales', title: 'SEO & Sales Content', icon: TrendingUp, path: '/seo-sales' },
+  { id: 'image-finder', title: 'AI Image Finder', icon: ImageIcon, path: '/image-finder' },
+  { id: 'fonts-animations', title: 'Fonts & Animations', icon: Type, path: '/fonts-animations' },
+  { id: 'chatbot', title: 'Chat Bot', icon: MessageSquare, path: '/chatbot' },
+  { id: 'editor', title: 'Editor', icon: Edit3, path: '/editor' },
+  { id: 'multilingual', title: 'Multilingual AI', icon: Globe, path: '/multilingual' },
+  { id: 'content-writer', title: 'Content Writer', icon: PenTool, path: '/content-writer' },
+  { id: 'hosting', title: 'Hosting', icon: Rocket, path: '/hosting' },
+  { id: 'integrations', title: 'Integrations', icon: Link, path: '/integrations' },
+  { id: 'workspaces', title: 'Workspace Manager', icon: Folder, path: '/workspaces' },
+  { id: 'analytics', title: 'Analytics', icon: BarChart3, path: '/analytics' },
+  { id: 'transcription', title: 'Transcription & Media', icon: MessageSquare, path: '/transcription' },
+  { id: 'creative-studio', title: 'Creative Studio', icon: Video, path: '/creative-studio' },
+  { id: 'youtube-hub', title: 'YouTube Hub', icon: Youtube, path: '/youtube-hub' },
+  { id: 'account-hub', title: 'Account & Subscription', icon: User, path: '/account' },
+  { id: 'maintenance', title: 'AI Maintenance', icon: ShieldCheck, path: '/maintenance' },
+];
+
+export const APP_NAME = "MUBUSLINK AI APP";

@@ -1,0 +1,41 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-serif: "Playfair Display", serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+
+  /* Base Colors */
+  --background: #020617; /* Slate 950 */
+  --foreground: #f8fafc; /* Slate 50 */
+  
+  /* Primary (Blue) */
+  --primary: #3b82f6; /* Blue 500 */
+  --primary-foreground: #ffffff;
+  
+  /* Accent (Purple) */
+  --accent: #8b5cf6; /* Violet 500 */
+  
+  /* Muted */
+  --muted: #1e293b; /* Slate 800 */
+  --muted-foreground: #94a3b8; /* Slate 400 */
+  
+  /* Border */
+  --border: #1e293b; /* Slate 800 */
+}
+
+@layer base {
+  body {
+    @apply bg-slate-950 text-slate-200 antialiased;
+    font-family: var(--font-sans);
+  }
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+

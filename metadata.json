@@ -1,0 +1,9 @@
+{
+  "name": "MUBUSLINK APP",
+  "description": "A comprehensive SaaS dashboard centralizing 12 essential web development and marketing tools with a magic AI writing experience.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone",
+    "geolocation"
+  ]
+}
