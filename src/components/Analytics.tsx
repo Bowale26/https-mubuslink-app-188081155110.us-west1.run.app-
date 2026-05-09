@@ -1,6 +1,7 @@
 import React from 'react';
 import { motion } from 'motion/react';
-import { BarChart3, TrendingUp, Users, Clock, Globe, ArrowUp, ArrowDown, Zap } from 'lucide-react';
+import { BarChart3, TrendingUp, Users, Clock, Globe, ArrowUp, ArrowDown, Zap, RefreshCw } from 'lucide-react';
+import { useState, useEffect } from 'react';
 import { 
   LineChart, 
   Line, 
@@ -19,6 +20,39 @@ import {
 } from 'recharts';
 
 const Analytics: React.FC = () => {
+  const [stats, setStats] = useState<any>(null);
+  const [loadingStats, setLoadingStats] = useState(true);
+
+  useEffect(() => {
+    fetch('/api/stats')
+      .then(res => res.json())
+      .then(data => {
+        setStats(data);
+        setLoadingStats(false);
+      })
+      .catch(err => {
+        console.error("Failed to fetch stats:", err);
+        setLoadingStats(false);
+      });
+  }, []);
+
+  const trialConversionRate = stats?.totalSignups 
+    ? ((stats.trialConversions / stats.totalSignups) * 100).toFixed(1) 
+    : '0.0';
+
+  // Mock ad spend for ROAS calculation ($500 for demo)
+  const mockAdSpend = 500;
+  const roas = stats?.totalRevenue 
+    ? (stats.totalRevenue / mockAdSpend).toFixed(2) 
+    : '0.00';
+
+  const statsCards = [
+    { label: 'Active Sessions', value: stats?.activeWebsites ? (stats.activeWebsites * 350).toLocaleString() : '45,231', change: '+12.5%', icon: Users, color: 'text-blue-500' },
+    { label: 'Trial Conversion', value: `${trialConversionRate}%`, change: '+8.2%', icon: Zap, color: 'text-emerald-500' },
+    { label: 'Total Revenue', value: stats?.totalRevenue ? `$${stats.totalRevenue.toLocaleString()}` : '$0', change: '+1.4%', icon: TrendingUp, color: 'text-amber-500' },
+    { label: 'ROAS', value: `${roas}x`, change: '+4.1%', icon: BarChart3, color: 'text-indigo-500' },
+  ];
+
   const data = [
     { name: 'Mon', visitors: 4000, views: 2400, bounce: 32 },
     { name: 'Tue', visitors: 3000, views: 1398, bounce: 28 },
@@ -66,11 +100,10 @@ const Analytics: React.FC = () => {
           <button className="px-4 py-2 bg-slate-900 border border-slate-800 rounded-xl text-xs font-bold flex items-center gap-2">
             <Globe size={14} /> Global Node: US-West
           </button>
-          <select className="px-4 py-2 bg-slate-900 border border-slate-800 rounded-xl text-xs font-bold outline-none">
-            <option>Last 7 Days</option>
-            <option>Last 30 Days</option>
-            <option>Last 90 Days</option>
-          </select>
+          <div className="px-4 py-2 bg-slate-900 border border-slate-800 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2">
+            <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
+            100% AOS Uptime
+          </div>
           <button className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-xl text-xs font-bold transition-all shadow-lg shadow-blue-900/20">
             Export BI Report
           </button>
@@ -78,13 +111,13 @@ const Analytics: React.FC = () => {
       </header>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {[
-          { label: 'Active Sessions', value: '45,231', change: '+12.5%', icon: Users, color: 'text-blue-500' },
-          { label: 'Neural Invocations', value: '128,432', change: '+8.2%', icon: Zap, color: 'text-emerald-500' },
-          { label: 'Avg. Retention', value: '4m 32s', change: '-2.1%', icon: Clock, color: 'text-purple-500' },
-          { label: 'Conv. Velocity', value: '32.4%', change: '+1.4%', icon: TrendingUp, color: 'text-amber-500' },
-        ].map((stat, i) => (
-          <div key={i} className="p-6 bg-slate-900 border border-slate-800 rounded-3xl space-y-4 group hover:border-blue-500/30 transition-all">
+        {statsCards.map((stat, i) => (
+          <div key={i} className="p-6 bg-slate-900 border border-slate-800 rounded-3xl space-y-4 group hover:border-blue-500/30 transition-all relative overflow-hidden">
+             {loadingStats && (
+              <div className="absolute inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center z-10">
+                <RefreshCw className="animate-spin text-blue-500" size={20} />
+              </div>
+            )}
             <div className="flex items-center justify-between">
               <div className={`p-3 rounded-xl bg-slate-800 ${stat.color} group-hover:scale-110 transition-transform`}>
                 <stat.icon size={20} />

@@ -1,8 +1,22 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
-import { Link, Zap, Check, Plus, Search, ExternalLink } from 'lucide-react';
+import { Link, Zap, Check, Plus, Search, ExternalLink, Key, Eye, EyeOff, Save } from 'lucide-react';
+import { toast } from 'sonner';
 
 const Integrations: React.FC = () => {
+  const [apiKey, setApiKey] = useState('');
+  const [showKey, setShowKey] = useState(false);
+
+  useEffect(() => {
+    const savedKey = localStorage.getItem('MUBUSLINK_AI_KEY');
+    if (savedKey) setApiKey(savedKey);
+  }, []);
+
+  const saveApiKey = () => {
+    localStorage.setItem('MUBUSLINK_AI_KEY', apiKey);
+    toast.success("API Key saved to browser local-storage.");
+  };
+
   const integrations = [
     { name: 'Stripe', category: 'Payments', icon: '💳', status: 'Connected' },
     { name: 'SendGrid', category: 'Email', icon: '📧', status: 'Not Connected' },
@@ -67,22 +81,61 @@ const Integrations: React.FC = () => {
         ))}
       </div>
 
-      <div className="bg-slate-900 border border-slate-800 p-8 rounded-3xl shadow-xl space-y-6">
-        <div className="flex items-center justify-between">
-          <h2 className="text-xl font-bold flex items-center gap-2">
-            <Link className="text-blue-500" size={24} /> Webhooks
-          </h2>
-          <button className="flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 rounded-xl text-xs font-bold transition-all">
-            <Plus size={16} /> Create Webhook
-          </button>
-        </div>
-        <div className="p-12 border-2 border-dashed border-slate-800 rounded-2xl text-center space-y-4">
-          <div className="w-16 h-16 bg-slate-800 rounded-full flex items-center justify-center mx-auto text-slate-600">
-            <Zap size={32} />
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <div className="bg-slate-900 border border-slate-800 p-8 rounded-3xl shadow-xl space-y-6">
+          <div className="flex items-center justify-between">
+            <h2 className="text-xl font-bold flex items-center gap-2">
+              <Key className="text-blue-500" size={24} /> AI API Configuration
+            </h2>
+            <div className="p-1 bg-slate-800 rounded-lg text-[8px] font-black uppercase text-slate-500 tracking-tighter">
+              Developer Mode
+            </div>
           </div>
-          <p className="text-sm text-slate-500 max-w-xs mx-auto">
-            No webhooks configured yet. Create one to receive real-time updates from external services.
-          </p>
+          <div className="space-y-4">
+            <p className="text-sm text-slate-500">
+              Provide your own Google AI Studio API Key to bypass platform limits. This key is stored locally in your browser.
+            </p>
+            <div className="relative">
+              <input 
+                type={showKey ? "text" : "password"} 
+                value={apiKey}
+                onChange={(e) => setApiKey(e.target.value)}
+                placeholder="Enter Gemini API Key..."
+                className="w-full pl-4 pr-12 py-4 bg-slate-800 border border-slate-700 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none transition-all font-mono text-sm"
+              />
+              <button 
+                onClick={() => setShowKey(!showKey)}
+                className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white transition-colors"
+              >
+                {showKey ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
+            </div>
+            <button 
+              onClick={saveApiKey}
+              className="w-full py-4 bg-blue-600 hover:bg-blue-500 text-white rounded-2xl font-bold transition-all flex items-center justify-center gap-2 shadow-lg shadow-blue-900/20 active:scale-95"
+            >
+              <Save size={18} /> Save Credentials
+            </button>
+          </div>
+        </div>
+
+        <div className="bg-slate-900 border border-slate-800 p-8 rounded-3xl shadow-xl space-y-6">
+          <div className="flex items-center justify-between">
+            <h2 className="text-xl font-bold flex items-center gap-2">
+              <Link className="text-blue-500" size={24} /> Webhooks
+            </h2>
+            <button className="flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 rounded-xl text-xs font-bold transition-all">
+              <Plus size={16} /> Create
+            </button>
+          </div>
+          <div className="p-8 border-2 border-dashed border-slate-800 rounded-2xl text-center space-y-4">
+            <div className="w-12 h-12 bg-slate-800 rounded-full flex items-center justify-center mx-auto text-slate-600">
+              <Zap size={24} />
+            </div>
+            <p className="text-[10px] text-slate-500 uppercase font-black tracking-widest">
+              No webhooks Active
+            </p>
+          </div>
         </div>
       </div>
     </div>

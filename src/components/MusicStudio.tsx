@@ -26,9 +26,11 @@ const MusicStudio: React.FC = () => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [generatedTracks, setGeneratedTracks] = useState<any[]>([]);
   const [style, setStyle] = useState('Cinematic');
+  const [mood, setMood] = useState('Inspiring');
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
-  const styles = ['Cinematic', 'Lofi', 'Synthwave', 'Epic', 'Ambient', 'Jazz'];
+  const styles = ['Cinematic', 'Lofi', 'Synthwave', 'Epic', 'Ambient', 'Jazz', 'Rock', 'Techno', 'Classical'];
+  const moods = ['Inspiring', 'Dark', 'Energetic', 'Relaxed', 'Aggressive', 'Melancholic'];
 
   const handleGenerateMusic = async () => {
     if (!prompt.trim()) return;
@@ -42,7 +44,7 @@ const MusicStudio: React.FC = () => {
       const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
       const response = await ai.models.generateContent({
         model: "gemini-3.1-flash-tts-preview", // Using a placeholder for audio generation
-        contents: [{ parts: [{ text: `Generate a music track description and characteristics for: ${style} style, ${prompt}` }] }]
+        contents: [{ parts: [{ text: `Generate a music track description and characteristics for: ${style} style, ${mood} mood, ${prompt}` }] }]
       });
 
       // Simulation of generation delay for UX
@@ -53,6 +55,7 @@ const MusicStudio: React.FC = () => {
         title: prompt.length > 20 ? prompt.substring(0, 20) + '...' : prompt,
         description: response.text,
         style: style,
+        mood: mood,
         duration: '2:45',
         thumbnail: `https://images.unsplash.com/photo-1470225620780-dba8ba36b745?auto=format&fit=crop&q=80&w=200&h=200`,
         // In a real environment, this would be a blob URL from atob(base64Data)
@@ -98,18 +101,35 @@ const MusicStudio: React.FC = () => {
               />
             </div>
 
-            <div className="space-y-2">
-              <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Select Genre / Vibe</label>
-              <div className="grid grid-cols-3 gap-2">
-                {styles.map(s => (
-                  <button 
-                    key={s}
-                    onClick={() => setStyle(s)}
-                    className={`py-2 rounded-xl text-[10px] font-bold transition-all ${style === s ? 'bg-pink-600 text-white shadow-lg shadow-pink-900/20' : 'bg-slate-800 text-slate-400 hover:bg-slate-750'}`}
-                  >
-                    {s}
-                  </button>
-                ))}
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Select Genre</label>
+                <div className="grid grid-cols-3 gap-2">
+                  {styles.map(s => (
+                    <button 
+                      key={s}
+                      onClick={() => setStyle(s)}
+                      className={`py-2 rounded-xl text-[10px] font-bold transition-all ${style === s ? 'bg-pink-600 text-white shadow-lg shadow-pink-900/20' : 'bg-slate-800 text-slate-400 hover:bg-slate-750'}`}
+                    >
+                      {s}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Select Mood</label>
+                <div className="grid grid-cols-3 gap-2">
+                  {moods.map(m => (
+                    <button 
+                      key={m}
+                      onClick={() => setMood(m)}
+                      className={`py-2 rounded-xl text-[10px] font-bold transition-all border ${mood === m ? 'bg-slate-200 border-white text-slate-950 shadow-lg' : 'bg-slate-850 border-slate-700 text-slate-500 hover:text-slate-300'}`}
+                    >
+                      {m}
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
 

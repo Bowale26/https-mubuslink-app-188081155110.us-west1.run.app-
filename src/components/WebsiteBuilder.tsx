@@ -21,6 +21,8 @@ interface GeneratedWebsite {
   };
 }
 
+import { FeatureGate } from './FeatureGate';
+
 const WebsiteBuilder: React.FC = () => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [step, setStep] = useState(1);
@@ -113,7 +115,8 @@ const WebsiteBuilder: React.FC = () => {
   };
 
   return (
-    <div className="p-8 space-y-8 bg-slate-950 min-h-full text-slate-200">
+    <FeatureGate featureName="Website Builder">
+      <div className="p-8 space-y-8 bg-slate-950 min-h-full text-slate-200">
       <header>
         <h1 className="text-3xl font-bold">AI Website Builder</h1>
         <p className="text-slate-500 mt-1">Generate a professional multi-page website in seconds.</p>
@@ -301,7 +304,8 @@ const WebsiteBuilder: React.FC = () => {
           initialData={{ businessName, industry, description }}
         />
       )}
-    </div>
+      </div>
+    </FeatureGate>
   );
 };
 

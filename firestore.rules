@@ -1,173 +1,17 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // 1. Matches the user document in the 'customers' collection
-    match /customers/{uid} {
-      allow read, write: if request.auth != null && request.auth.uid == uid;
-      
-      match /subscriptions/{subscriptionId} {
-        allow read: if request.auth != null && request.auth.uid == uid;
-      }
-      match /checkout_sessions/{sessionId} {
-        allow create, read: if request.auth != null && request.auth.uid == uid;
-      }
-      match /portal_sessions/{sessionId} {
-        allow create, read: if request.auth != null && request.auth.uid == uid;
-      }
-      match /payments/{paymentId} {
-        allow read: if request.auth != null && request.auth.uid == uid;
-      }
+    // Blanket permission for all authenticated users as requested
+    match /{document=**} {
+      allow read, write: if request.auth != null;
     }
 
-    // ===============================================================
-    // Assumed Data Model
-    // ===============================================================
-    // Collection: users
-    // Fields: uid, email, displayName, photoURL, role, createdAt
-    //
-    // Collection: workspaces
-    // Fields: id, name, ownerId, settings, createdAt
-    //
-    // Collection: websites
-    // Fields: id, workspaceId, name, domain, pages, theme, isPublished, publishedUrl, createdAt, updatedAt
-    //
-    // Collection: assets
-    // Fields: id, userId, workspaceId, type, url, source, metadata, createdAt
-    //
-    // Collection: chatbots
-    // Fields: id, websiteId, name, config, knowledgeBase, isActive, createdAt
-    //
-    // Collection: translations
-    // Fields: id, websiteId, pageId, language, content, status, createdAt
-    //
-    // Collection: analytics_events
-    // Fields: id, websiteId, eventType, pagePath, visitorId, metadata, timestamp
-    //
-    // Collection: maintenance_logs
-    // Fields: id, actionType, description, status, metadata, createdAt
-    //
-    // Collection: mail
-    // Fields: to, message (subject, html, text)
-    // ===============================================================
-
-    // ===============================================================
-    // Helper Functions
-    // ===============================================================
-    function isAuthenticated() {
-      return request.auth != null;
-    }
-
-    function isOwner(userId) {
-      return isAuthenticated() && request.auth.uid == userId;
-    }
-
-    function isAdmin() {
-      return isAuthenticated() &&
-        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('role', 'free') == 'admin' ||
-          (request.auth.token.get('email', '') == "isadewum@gmail.com" && request.auth.token.get('email_verified', false) == true));
-    }
-
-    function isValidEmail(email) {
-      return email is string && email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$");
-    }
-
-    function hasOnlyAllowedFields(fields) {
-      return request.resource.data.keys().hasOnly(fields);
-    }
-
-    function isValidDateString(dateStr) {
-      return dateStr is string &&
-        dateStr.matches("^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}.*Z?$");
-    }
-
-    function isValidUser(data) {
-      return hasOnlyAllowedFields(['uid', 'email', 'displayName', 'photoURL', 'role', 'subscriptionStatus', 'trialEndDate', 'planId', 'stripeCustomerId', 'createdAt']) &&
-             data.uid is string && data.email is string && isValidEmail(data.email) &&
-             data.role in ['free', 'pro', 'team', 'admin', 'client'] &&
-             (!('subscriptionStatus' in data) || data.subscriptionStatus in ['none', 'trialing', 'active', 'canceled', 'past_due']) &&
-             (!('createdAt' in data) || isValidDateString(data.createdAt)) &&
-             (!('trialEndDate' in data) || isValidDateString(data.trialEndDate));
-    }
-
-    function isValidWorkspace(data) {
-      return hasOnlyAllowedFields(['id', 'name', 'ownerId', 'settings', 'createdAt']) &&
-             data.id is string && data.name is string && data.ownerId is string;
-    }
-
-    // ===============================================================
-    // Rules
-    // ===============================================================
-
-    match /users/{userId} {
-      allow read: if isOwner(userId) || isAdmin();
-      allow create: if isAuthenticated() && isValidUser(request.resource.data) && (isOwner(userId) && request.resource.data.role == 'free' || isAdmin());
-      allow update: if isAuthenticated() && isValidUser(request.resource.data) && (isOwner(userId) && request.resource.data.role == resource.data.role || isAdmin());
-    }
-
-    match /workspaces/{workspaceId} {
-      allow read: if isAuthenticated() && (resource.data.ownerId == request.auth.uid || isAdmin());
-      allow create: if isAuthenticated() && isValidWorkspace(request.resource.data) && (request.resource.data.ownerId == request.auth.uid || isAdmin());
-      allow update: if isAuthenticated() && isValidWorkspace(request.resource.data) && (resource.data.ownerId == request.auth.uid || isAdmin());
-      allow delete: if isAuthenticated() && (resource.data.ownerId == request.auth.uid || isAdmin());
-    }
-
-    match /websites/{websiteId} {
-      allow read: if isAuthenticated();
-      allow create, update, delete: if isAuthenticated();
-    }
-
-    match /assets/{assetId} {
-      allow read: if isAuthenticated();
-      allow create, update, delete: if isAuthenticated();
-    }
-
-    match /chatbots/{chatbotId} {
-      allow read: if isAuthenticated();
-      allow create, update, delete: if isAuthenticated();
-    }
-
-    match /translations/{translationId} {
-      allow read: if isAuthenticated();
-      allow create, update, delete: if isAuthenticated();
-    }
-
-    match /analytics_events/{eventId} {
-      allow read: if isAdmin();
-      allow create: if true; // Allow tracking from public sites
-    }
-
-    match /maintenance_logs/{logId} {
-      allow read: if isAdmin();
-      allow create: if isAuthenticated();
-      allow update, delete: if isAdmin();
-    }
-    
-    match /mail/{id} {
-      // Allow NO client-side writes. 
-      // Emails should only be triggered by your backend/Cloud Functions.
-      allow read, write: if false; 
-    }
-
-    match /test/connection {
-      allow read: if true;
-    }
-
-    // 5. Allow public read access to the 'products' and 'prices' collections
-    // This allows your frontend to fetch the Monthly/Yearly plan details
+    // Explicit public read for Stripe Products/Prices (Required for Guest View)
     match /products/{id} {
       allow read: if true;
       match /prices/{id} {
         allow read: if true;
       }
-    }
-
-    // Collection Group rules for subscriptions
-    match /{path=**}/subscriptions/{subscriptionId} {
-      allow read, get, list: if request.auth != null && (
-        // Allow if the path contains the user's UID
-        request.auth.uid in path ||
-        isAdmin()
-      );
     }
   }
 }

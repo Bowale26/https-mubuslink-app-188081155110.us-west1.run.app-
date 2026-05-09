@@ -1,11 +1,15 @@
 import React, { useState } from 'react';
 import { motion } from 'motion/react';
 import { PenTool, Sparkles, FileText, Mail, Share2, Hash, RefreshCw, Check, Download } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
+import { toast } from 'sonner';
 
 const ContentWriter: React.FC = () => {
+  const { user } = useAuth();
   const [isGenerating, setIsGenerating] = useState(false);
   const [contentType, setContentType] = useState('Blog Post');
   const [generatedContent, setGeneratedContent] = useState('');
+  const [topic, setTopic] = useState('');
 
   const contentTypes = [
     { name: 'Blog Post', icon: FileText },
@@ -15,12 +19,42 @@ const ContentWriter: React.FC = () => {
     { name: 'Meta Data', icon: Hash },
   ];
 
-  const handleGenerate = () => {
+  const handleGenerate = async () => {
+    if (!topic.trim()) {
+      toast.error("Please enter keywords or a topic.");
+      return;
+    }
+    if (!user) {
+      toast.error("User session missing.");
+      return;
+    }
+
     setIsGenerating(true);
-    setTimeout(() => {
-      setGeneratedContent("This is a preview of the AI-generated content based on your topic. In a production environment, this would be a full, SEO-optimized article or copy tailored to your target audience and tone of voice.");
+    try {
+      const response = await fetch('/api/ai/generate-content', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: user.uid,
+          contentType: contentType,
+          userPrompt: topic
+        })
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        setGeneratedContent(data.text);
+        toast.success("Copywriter finished generating!");
+      } else {
+        setGeneratedContent(data.message);
+        toast.error(data.message);
+      }
+    } catch (error) {
+      console.error("Generation error:", error);
+      toast.error("MUBUSLINK Backend offline or unavailable.");
+    } finally {
       setIsGenerating(false);
-    }, 2000);
+    }
   };
 
   return (
@@ -60,6 +94,8 @@ const ContentWriter: React.FC = () => {
                 <label className="text-xs font-medium text-slate-500 mb-2 block">Topic or Keywords</label>
                 <input 
                   type="text" 
+                  value={topic}
+                  onChange={(e) => setTopic(e.target.value)}
                   placeholder="e.g. Benefits of AI in SaaS" 
                   className="w-full px-4 py-3 bg-slate-800 border border-slate-700 rounded-xl text-sm outline-none focus:ring-2 focus:ring-blue-500"
                 />

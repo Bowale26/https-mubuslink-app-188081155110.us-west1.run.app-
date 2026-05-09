@@ -3,14 +3,14 @@ import { useAuth } from '../context/AuthContext';
 import { GoogleAuthProvider, signInWithPopup, signOut } from 'firebase/auth';
 import { auth } from '../firebase';
 import { LogIn, LogOut, UserPlus, Sparkles } from 'lucide-react';
-import { handleStripeCheckout } from '../lib/stripeClient';
+import { handleMubuslinkCheckout } from '../lib/stripeClient';
 
 /**
  * MubuslinkPricing component displays the pricing plans fetched from Stripe.
  * It allows users to select a plan and start their 7-day free trial.
  */
 export const MubuslinkPricing = () => {
-  const { plans, loading } = usePricingPlans();
+  const { loading } = usePricingPlans();
   const { user } = useAuth();
 
   const handleLogin = () => {
@@ -28,15 +28,6 @@ export const MubuslinkPricing = () => {
       Syncing with our secure billing system...
     </div>
   );
-
-  // Specific Price IDs provided by the user
-  const SUBSCRIPTION_PLANS = {
-    MONTHLY: "price_1TFLdKBMbxh6jv0C0MIn4aU5",
-    YEARLY: "price_1TFLeCBMbxh6jv0Clh2Evj4b"
-  };
-
-  const monthlyPriceId = SUBSCRIPTION_PLANS.MONTHLY;
-  const yearlyPriceId = SUBSCRIPTION_PLANS.YEARLY;
 
   return (
     <section className="bg-gray-900 py-12 px-4 sm:px-6 lg:px-8 min-h-full">
@@ -110,7 +101,7 @@ export const MubuslinkPricing = () => {
               </ul>
             </div>
             <button 
-              onClick={() => handleStripeCheckout('price_TRIAL_ID_HERE', user?.uid, user?.email || undefined)}
+              onClick={() => handleMubuslinkCheckout('monthly', user?.uid, user?.email || undefined, true)}
               className="mt-10 w-full bg-emerald-600 hover:bg-emerald-500 text-white rounded-2xl py-4 font-black transition-all shadow-xl shadow-emerald-900/40 active:scale-[0.98]"
             >
               Start 7-Day Free Trial
@@ -131,7 +122,7 @@ export const MubuslinkPricing = () => {
               </p>
             </div>
             <button 
-              onClick={() => monthlyPriceId && handleStripeCheckout(monthlyPriceId, user?.uid, user?.email || undefined)}
+              onClick={() => handleMubuslinkCheckout('monthly', user?.uid, user?.email || undefined, false)}
               className="mt-10 w-full bg-blue-600 hover:bg-blue-500 text-white rounded-2xl py-4 font-black transition-all shadow-xl shadow-blue-900/30 active:scale-[0.98]"
             >
               Subscribe Monthly
@@ -157,7 +148,7 @@ export const MubuslinkPricing = () => {
               </p>
             </div>
             <button 
-              onClick={() => yearlyPriceId && handleStripeCheckout(yearlyPriceId, user?.uid, user?.email || undefined)}
+              onClick={() => handleMubuslinkCheckout('yearly', user?.uid, user?.email || undefined, false)}
               className="mt-10 w-full bg-white text-slate-900 hover:bg-blue-50 rounded-2xl py-4 font-black transition-all shadow-xl active:scale-[0.98]"
             >
               Subscribe Yearly

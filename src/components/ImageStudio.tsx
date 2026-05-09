@@ -13,7 +13,12 @@ import {
   PenTool,
   Search,
   Ratio,
-  Monitor
+  Monitor,
+  Scissors,
+  Palette,
+  Sun,
+  Contrast,
+  RotateCcw
 } from 'lucide-react';
 import { GoogleGenAI } from "@google/genai";
 import { toast } from 'sonner';
@@ -27,7 +32,35 @@ const ImageStudio: React.FC = () => {
   const [editPrompt, setEditPrompt] = useState('');
   const [quality, setQuality] = useState<'Standard' | 'High' | 'Ultra'>('High');
   const [aspectRatio, setAspectRatio] = useState<'1:1' | '16:9' | '9:16' | '4:3'>('1:1');
+  const [filters, setFilters] = useState({
+    brightness: 100,
+    contrast: 100,
+    saturate: 100,
+    grayscale: 0,
+    invert: 0,
+    blur: 0
+  });
+
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const resetFilters = () => {
+    setFilters({
+      brightness: 100,
+      contrast: 100,
+      saturate: 100,
+      grayscale: 0,
+      invert: 0,
+      blur: 0
+    });
+  };
+
+  const handleFilterChange = (name: keyof typeof filters, value: number) => {
+    setFilters(prev => ({ ...prev, [name]: value }));
+  };
+
+  const filterStyle = {
+    filter: `brightness(${filters.brightness}%) contrast(${filters.contrast}%) saturate(${filters.saturate}%) grayscale(${filters.grayscale}%) invert(${filters.invert}%) blur(${filters.blur}px)`
+  };
 
   const handleGenerate = async () => {
     if (!prompt.trim()) return;
@@ -205,6 +238,64 @@ const ImageStudio: React.FC = () => {
               )}
             </div>
           </div>
+
+          {selectedImage && (
+            <div className="bg-slate-900 border border-slate-800 p-6 rounded-3xl shadow-xl space-y-6 animate-in fade-in slide-in-from-left duration-300">
+              <div className="flex items-center justify-between">
+                <h4 className="text-sm font-bold text-slate-300 flex items-center gap-2">
+                  <Palette size={16} className="text-amber-500" /> Adjustments
+                </h4>
+                <button 
+                  onClick={resetFilters}
+                  className="p-1.5 hover:bg-slate-800 rounded-lg text-slate-500 hover:text-slate-200 transition-all"
+                  title="Reset Filters"
+                >
+                  <RotateCcw size={14} />
+                </button>
+              </div>
+              
+              <div className="space-y-4">
+                {[
+                  { name: 'brightness', label: 'Brightness', min: 0, max: 200, icon: Sun },
+                  { name: 'contrast', label: 'Contrast', min: 0, max: 200, icon: Contrast },
+                  { name: 'saturate', label: 'Saturation', min: 0, max: 200, icon: Palette },
+                  { name: 'blur', label: 'Softness', min: 0, max: 10, icon: Wand2 }
+                ].map((f) => (
+                  <div key={f.name} className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
+                        <f.icon size={10} /> {f.label}
+                      </label>
+                      <span className="text-[10px] font-bold text-blue-500">{(filters as any)[f.name]}</span>
+                    </div>
+                    <input 
+                      type="range" 
+                      min={f.min} 
+                      max={f.max} 
+                      value={(filters as any)[f.name]}
+                      onChange={(e) => handleFilterChange(f.name as any, parseInt(e.target.value))}
+                      className="w-full h-1 bg-slate-800 rounded-full appearance-none cursor-pointer accent-blue-500"
+                    />
+                  </div>
+                ))}
+              </div>
+
+              <div className="grid grid-cols-2 gap-2 pt-2">
+                <button 
+                  onClick={() => handleFilterChange('grayscale', filters.grayscale === 0 ? 100 : 0)}
+                  className={`py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border transition-all ${filters.grayscale > 0 ? 'bg-slate-200 text-slate-900 border-white' : 'bg-slate-800 text-slate-500 border-slate-700 hover:border-slate-600'}`}
+                >
+                  B&W
+                </button>
+                <button 
+                  onClick={() => handleFilterChange('invert', filters.invert === 0 ? 100 : 0)}
+                  className={`py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border transition-all ${filters.invert > 0 ? 'bg-slate-100/10 text-white border-blue-500' : 'bg-slate-800 text-slate-500 border-slate-700 hover:border-slate-600'}`}
+                >
+                  Invert
+                </button>
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="xl:col-span-8 space-y-6">
@@ -239,6 +330,7 @@ const ImageStudio: React.FC = () => {
                       initial={{ opacity: 0, scale: 0.95 }}
                       animate={{ opacity: 1, scale: 1 }}
                       className="max-w-full max-h-[70vh] shadow-2xl rounded-2xl overflow-hidden border border-slate-800"
+                      style={filterStyle}
                     >
                       <img src={selectedImage} alt="Focused render" className="w-full h-full object-contain" referrerPolicy="no-referrer" />
                     </motion.div>

@@ -19,6 +19,7 @@ import {
   Key
 } from 'lucide-react';
 import { GoogleGenAI } from "@google/genai";
+import { FeatureGate } from './FeatureGate';
 
 interface GeneratedAsset {
   id: string;
@@ -172,7 +173,7 @@ const ImageFinder: React.FC = () => {
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
       
       let operation = await ai.models.generateVideos({
-        model: 'veo-3.1-fast-generate-preview',
+        model: 'veo-3.1-lite-generate-preview',
         prompt: prompt,
         config: {
           numberOfVideos: 1,
@@ -244,7 +245,8 @@ const ImageFinder: React.FC = () => {
   };
 
   return (
-    <div className="p-8 space-y-8 bg-slate-950 min-h-full text-slate-200">
+    <FeatureGate featureName="AI Image Finder">
+      <div className="p-8 space-y-8 bg-slate-950 min-h-full text-slate-200">
       <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold">AI Image Finder & Assets</h1>
@@ -499,7 +501,8 @@ const ImageFinder: React.FC = () => {
           </div>
         )}
       </div>
-    </div>
+      </div>
+    </FeatureGate>
   );
 };
 

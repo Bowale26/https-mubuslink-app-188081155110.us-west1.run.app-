@@ -140,9 +140,28 @@
         }
       },
       "required": ["to", "message"]
+    },
+    "GlobalStats": {
+      "title": "GlobalStats",
+      "description": "Aggregated system KPIs and statistics",
+      "type": "object",
+      "properties": {
+        "activeWebsites": { "type": "number" },
+        "totalVisitors": { "type": "number" },
+        "aiWordsWritten": { "type": "number" },
+        "botConversations": { "type": "number" },
+        "trialConversions": { "type": "number" },
+        "totalRevenue": { "type": "number" },
+        "totalSignups": { "type": "number" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      }
     }
   },
   "firestore": {
+    "/global_stats/{docId}": {
+      "schema": "GlobalStats",
+      "description": "Global statistics and KPIs"
+    },
     "/users/{userId}": {
       "schema": "User",
       "description": "User profiles"

@@ -25,12 +25,14 @@ const VideoStudio: React.FC = () => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [videos, setVideos] = useState<any[]>([]);
   const [resolution, setResolution] = useState('1080p');
+  const [aspectRatio, setAspectRatio] = useState('16:9');
   const [style, setStyle] = useState('Cinematic');
 
   const videoRef = useRef<HTMLVideoElement>(null);
 
   const styles = ['Cinematic', '3D Render', 'Artistic', 'Hyper-realistic', 'Anime', 'Vintage'];
   const resolutions = ['720p', '1080p', '4K'];
+  const aspectRatios = ['16:9', '9:16', '1:1'];
 
   const handleGenerate = async () => {
     if (!prompt.trim()) return;
@@ -42,7 +44,7 @@ const VideoStudio: React.FC = () => {
       const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
       const response = await ai.models.generateContent({
         model: "gemini-1.5-flash",
-        contents: [{ parts: [{ text: `Generate a detailed screenplay description for 5 seconds of video: ${prompt} in ${style} style.` }] }]
+        contents: [{ parts: [{ text: `Generate a detailed screenplay description for 5 seconds of video in ${aspectRatio} aspect ratio: ${prompt} in ${style} style.` }] }]
       });
 
       await new Promise(resolve => setTimeout(resolve, 5000));
@@ -54,6 +56,7 @@ const VideoStudio: React.FC = () => {
         description: response.text,
         style: style,
         resolution: resolution,
+        aspectRatio: aspectRatio,
         duration: '5.0s',
         // Using a high-quality placeholder video
         url: 'https://assets.mixkit.co/videos/preview/mixkit-abstract-blue-liquid-ink-background-loop-32981-large.mp4',
@@ -87,17 +90,34 @@ const VideoStudio: React.FC = () => {
           </h1>
           <p className="text-slate-500 mt-1">High-fidelity AI video generation and cinematic synthesis.</p>
         </div>
-        <div className="flex gap-2">
-          <div className="p-1 bg-slate-900 border border-slate-800 rounded-xl flex">
-            {resolutions.map(r => (
-              <button 
-                key={r}
-                onClick={() => setResolution(r)}
-                className={`px-3 py-1.5 rounded-lg text-[10px] font-black tracking-widest transition-all ${resolution === r ? 'bg-indigo-600 text-white' : 'text-slate-500 hover:text-slate-300'}`}
-              >
-                {r}
-              </button>
-            ))}
+        <div className="flex flex-wrap gap-4">
+          <div className="flex flex-col gap-1">
+            <span className="text-[9px] font-black text-slate-600 uppercase tracking-widest px-1">Resolution</span>
+            <div className="p-1 bg-slate-900 border border-slate-800 rounded-xl flex">
+              {resolutions.map(r => (
+                <button 
+                  key={r}
+                  onClick={() => setResolution(r)}
+                  className={`px-3 py-1.5 rounded-lg text-[10px] font-black tracking-widest transition-all ${resolution === r ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-500 hover:text-slate-300'}`}
+                >
+                  {r}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="flex flex-col gap-1">
+            <span className="text-[9px] font-black text-slate-600 uppercase tracking-widest px-1">Aspect Ratio</span>
+            <div className="p-1 bg-slate-900 border border-slate-800 rounded-xl flex">
+              {aspectRatios.map(ar => (
+                <button 
+                  key={ar}
+                  onClick={() => setAspectRatio(ar)}
+                  className={`px-3 py-1.5 rounded-lg text-[10px] font-black tracking-widest transition-all ${aspectRatio === ar ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-500 hover:text-slate-300'}`}
+                >
+                  {ar}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
       </header>
