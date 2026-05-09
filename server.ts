@@ -336,7 +336,10 @@ async function startServer() {
 
       if (error.message.includes("PERMISSION_DENIED") || error.code === 7) {
         console.warn("[A2A Judge] 7 PERMISSION_DENIED detected. Manifest balanced? Validating IAM...");
-        return res.json(fallbackKpis);
+        return res.json({
+            ...fallbackKpis,
+            _maintenance: `PERMISSION_DENIED (Code 7) - Using Fallback. Check IAM for database: ${firebaseConfig.firestoreDatabaseId}`
+        });
       }
 
       res.status(500).json({ 

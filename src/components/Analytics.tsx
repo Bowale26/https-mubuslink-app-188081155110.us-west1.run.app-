@@ -111,6 +111,20 @@ const Analytics: React.FC = () => {
       </header>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        {stats?._maintenance && (
+          <div className="lg:col-span-4 p-3 bg-amber-500/10 border border-amber-500/20 rounded-2xl flex items-center justify-between mb-2">
+            <div className="flex items-center gap-3">
+              <Activity className="text-amber-500" size={16} />
+              <p className="text-[10px] font-bold text-amber-500 uppercase tracking-widest">{stats._maintenance}</p>
+            </div>
+            <button 
+              onClick={() => window.location.reload()}
+              className="px-3 py-1 bg-amber-500 text-slate-900 text-[10px] font-black rounded-lg hover:bg-amber-600 transition-colors"
+            >
+              RETRY
+            </button>
+          </div>
+        )}
         {statsCards.map((stat, i) => (
           <div key={i} className="p-6 bg-slate-900 border border-slate-800 rounded-3xl space-y-4 group hover:border-blue-500/30 transition-all relative overflow-hidden">
              {loadingStats && (

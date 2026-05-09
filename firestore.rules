@@ -1,17 +1,105 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Blanket permission for all authenticated users as requested
+    // 0. Global Safety Net
     match /{document=**} {
-      allow read, write: if request.auth != null;
+      allow read, write: if false;
     }
 
-    // Explicit public read for Stripe Products/Prices (Required for Guest View)
+    // --- Helpers ---
+    function isSignedIn() { return request.auth != null; }
+    function isOwner(userId) { return isSignedIn() && request.auth.uid == userId; }
+    function isAdmin() { 
+      return isSignedIn() && (
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid)) ||
+        request.auth.token.email == 'isadewum@gmail.com'
+      ); 
+    }
+    function isValidId(id) { return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$'); }
+    function incoming() { return request.resource.data; }
+    function existing() { return resource.data; }
+    
+    // Validation Blueprints
+    function isValidUser(data) {
+      return data.keys().hasAll(['uid', 'email']) &&
+             data.uid == request.auth.uid &&
+             data.email is string && data.email.size() <= 256 &&
+             (!('role' in data) || data.role in ['free', 'pro', 'team', 'admin']) &&
+             (!('subscriptionStatus' in data) || data.subscriptionStatus in ['none', 'trialing', 'active', 'canceled', 'past_due']);
+    }
+
+    function isValidGlobalStats(data) {
+      return data.keys().hasAny(['activeWebsites', 'totalVisitors', 'aiWordsWritten']) &&
+             (!('activeWebsites' in data) || data.activeWebsites is number) &&
+             (!('totalVisitors' in data) || data.totalVisitors is number);
+    }
+
+    // --- Rules ---
+
+    // Global Stats: Public Read (authenticated), Admin Write
+    match /global_stats/{docId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    // Users: Owner only, Admin can read
+    match /users/{userId} {
+      allow get: if isOwner(userId) || isAdmin();
+      allow list: if isAdmin();
+      allow create: if isOwner(userId) && isValidUser(incoming());
+      allow update: if isOwner(userId) && isValidUser(incoming()) && (
+        // Prevent self-elevation of role unless admin
+        (incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'photoURL', 'subscriptionStatus', 'updatedAt'])) ||
+        isAdmin()
+      );
+    }
+
+    // Workspaces
+    match /workspaces/{workspaceId} {
+      allow read: if isSignedIn() && (existing().ownerId == request.auth.uid || isAdmin());
+      allow create: if isSignedIn() && isValidId(workspaceId) && incoming().ownerId == request.auth.uid;
+      allow update: if isSignedIn() && existing().ownerId == request.auth.uid;
+      
+      // Subcollection: Members
+      match /members/{memberId} {
+        allow read: if isSignedIn() && (get(/databases/$(database)/documents/workspaces/$(workspaceId)).data.ownerId == request.auth.uid || memberId == request.auth.uid);
+        allow write: if isSignedIn() && get(/databases/$(database)/documents/workspaces/$(workspaceId)).data.ownerId == request.auth.uid;
+      }
+    }
+
+    // Websites: Derived from Workspace
+    match /websites/{websiteId} {
+      function canAccessWebsite() {
+        let workspaceId = existing().workspaceId;
+        return get(/databases/$(database)/documents/workspaces/$(workspaceId)).data.ownerId == request.auth.uid;
+      }
+      allow read: if isSignedIn() && (canAccessWebsite() || isAdmin());
+      allow write: if isSignedIn() && (canAccessWebsite() || isAdmin());
+    }
+
+    // Stripe Support (Guest read for products/prices)
     match /products/{id} {
       allow read: if true;
-      match /prices/{id} {
-        allow read: if true;
+      match /prices/{id} { allow read: if true; }
+    }
+    
+    // Customers (Private PII)
+    match /customers/{userId} {
+      allow read, write: if isOwner(userId) || isAdmin();
+      match /{allPaths=**} {
+        allow read, write: if isOwner(userId) || isAdmin();
       }
+    }
+
+    // Mail Queue: Write-only
+    match /mail/{mailId} {
+      allow create: if isSignedIn();
+      allow read, update, delete: if isAdmin();
+    }
+
+    // Maintenance & Logs
+    match /maintenance_logs/{logId} {
+      allow read, write: if isAdmin();
     }
   }
 }
