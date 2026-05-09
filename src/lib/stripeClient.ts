@@ -6,7 +6,7 @@ const publishableKey = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY || import.met
 /**
  * Initializes Stripe promise with the publishable key.
  */
-export const stripePromise = loadStripe(publishableKey || 'your_publishable_key_here');
+export const stripePromise = loadStripe(publishableKey || 'pk_live_Y8I4kIWBXPdQIfZ2tthPIFwV00DlqCjZva');
 
 /**
  * Handles the checkout process using the server-side session creation.
