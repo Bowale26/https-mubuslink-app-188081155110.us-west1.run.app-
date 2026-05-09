@@ -10,15 +10,21 @@ import {
   Trash2, 
   Zap, 
   Mic,
+  MicOff,
   Loader2,
   FileText,
   Mail,
   PenTool,
   Sparkles,
-  CheckCircle2
+  CheckCircle2,
+  Volume2,
+  VolumeX,
+  Play,
+  RotateCcw
 } from 'lucide-react';
 import TranscriptionButton from './TranscriptionButton';
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenAI, Modality } from "@google/genai";
+import { toast } from 'sonner';
 
 interface Message {
   role: 'user' | 'bot';
@@ -32,12 +38,65 @@ const ChatBot: React.FC = () => {
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [tone, setTone] = useState<'Professional' | 'Friendly'>('Professional');
+  const [selectedVoice, setSelectedVoice] = useState<'Puck' | 'Charon' | 'Kore' | 'Fenrir' | 'Zephyr'>('Kore');
+  const [isTTSEnabled, setIsTTSEnabled] = useState(true);
   const [welcomeMessage, setWelcomeMessage] = useState("Hello! I'm your AI assistant. How can I help you today?");
   const [kbFile, setKbFile] = useState<File | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'success'>('idle');
+  const [isSynthesizing, setIsSynthesizing] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const voices = ['Puck', 'Charon', 'Kore', 'Fenrir', 'Zephyr'];
+
+  const synthesizeSpeech = async (text: string) => {
+    if (!isTTSEnabled) return;
+    setIsSynthesizing(true);
+    try {
+      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+      const prompt = `Say ${tone === 'Friendly' ? 'cheerfully' : 'professionally'}: ${text}`;
+      
+      const response = await ai.models.generateContent({
+        model: "gemini-3.1-flash-tts-preview",
+        contents: [{ parts: [{ text: prompt }] }],
+        config: {
+          responseModalities: [Modality.AUDIO],
+          speechConfig: {
+            voiceConfig: {
+              prebuiltVoiceConfig: { voiceName: selectedVoice },
+            },
+          },
+        },
+      });
+
+      const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+      if (base64Audio) {
+        const audioData = atob(base64Audio);
+        const arrayBuffer = new ArrayBuffer(audioData.length);
+        const view = new Uint8Array(arrayBuffer);
+        for (let i = 0; i < audioData.length; i++) {
+          view[i] = audioData.charCodeAt(i);
+        }
+
+        if (!audioContextRef.current) {
+          audioContextRef.current = new AudioContext({ sampleRate: 24000 });
+        }
+        
+        const audioBuffer = await audioContextRef.current.decodeAudioData(arrayBuffer);
+        const source = audioContextRef.current.createBufferSource();
+        source.buffer = audioBuffer;
+        source.connect(audioContextRef.current.destination);
+        source.start();
+      }
+    } catch (error) {
+      console.error('TTS error:', error);
+      toast.error("Failed to synthesize speech.");
+    } finally {
+      setIsSynthesizing(false);
+    }
+  };
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -109,6 +168,11 @@ const ChatBot: React.FC = () => {
 
       const botResponse = response.text || "I'm sorry, I couldn't process that request.";
       setMessages(prev => [...prev, { role: 'bot', text: botResponse }]);
+      
+      // Synthesize bot's response if enabled
+      if (isTTSEnabled) {
+        synthesizeSpeech(botResponse);
+      }
     } catch (error) {
       console.error('Chat error:', error);
       setMessages(prev => [...prev, { role: 'bot', text: "I encountered an error. Please check your connection and try again." }]);
@@ -154,7 +218,14 @@ const ChatBot: React.FC = () => {
                   </div>
                 </div>
               </div>
-              <div className="flex gap-2">
+              <div className="flex items-center gap-2">
+                <button 
+                  onClick={() => setIsTTSEnabled(!isTTSEnabled)}
+                  className={`p-2 rounded-lg transition-all ${isTTSEnabled ? 'text-blue-500 bg-blue-500/10' : 'text-slate-500 hover:bg-slate-800'}`}
+                  title={isTTSEnabled ? "Voice Enabled" : "Voice Disabled"}
+                >
+                  {isTTSEnabled ? <Volume2 size={18} /> : <VolumeX size={18} />}
+                </button>
                 <button className="p-2 hover:bg-slate-800 rounded-lg text-slate-400"><Settings size={18} /></button>
                 <button 
                   onClick={() => setMessages([{ role: 'bot', text: welcomeMessage }])}
@@ -207,14 +278,22 @@ const ChatBot: React.FC = () => {
                 ))}
               </div>
 
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest flex items-center gap-2">
-                  <Mic size={12} /> Voice Input Available
-                </span>
-                <TranscriptionButton 
-                  onTranscriptionComplete={(text) => setInput(prev => prev ? `${prev} ${text}` : text)}
-                  className="flex-row items-center"
-                />
+              <div className="flex items-center justify-between bg-slate-800/30 p-2 rounded-xl mb-2">
+                <div className="flex items-center gap-3">
+                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest flex items-center gap-2">
+                    <Mic size={12} className={saveStatus === 'saving' ? 'text-blue-500 animate-pulse' : ''} /> Dictation
+                  </span>
+                  <TranscriptionButton 
+                    onTranscriptionComplete={(text) => setInput(prev => prev ? `${prev} ${text}` : text)}
+                    className="flex-row items-center !gap-1"
+                  />
+                </div>
+                {isSynthesizing && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-black text-blue-500 animate-pulse uppercase tracking-widest">Speaking...</span>
+                    <Volume2 size={12} className="text-blue-500 animate-bounce" />
+                  </div>
+                )}
               </div>
               <div className="relative">
                 <input 
@@ -259,6 +338,26 @@ const ChatBot: React.FC = () => {
                     Friendly
                   </button>
                 </div>
+              </div>
+              <div>
+                <label className="text-xs font-medium text-slate-500 mb-2 block uppercase tracking-wider">Voice Character</label>
+                <div className="grid grid-cols-3 gap-2">
+                  {voices.map(v => (
+                    <button
+                      key={v}
+                      onClick={() => setSelectedVoice(v as any)}
+                      className={`py-2 rounded-lg text-[10px] font-bold transition-all ${selectedVoice === v ? 'bg-blue-600 text-white shadow-lg' : 'bg-slate-800 text-slate-400 hover:bg-slate-700'}`}
+                    >
+                      {v}
+                    </button>
+                  ))}
+                </div>
+                <button 
+                  onClick={() => synthesizeSpeech("This is what I sound like. Do you like it?")}
+                  className="w-full mt-2 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-400 rounded-lg text-[10px] font-bold flex items-center justify-center gap-2"
+                >
+                  <Play size={10} /> Test Voice
+                </button>
               </div>
               <div>
                 <label className="text-xs font-medium text-slate-500 mb-2 block uppercase tracking-wider">Knowledge Base</label>

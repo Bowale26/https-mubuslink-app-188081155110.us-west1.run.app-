@@ -17,9 +17,15 @@ import Analytics from './components/Analytics';
 import Transcription from './components/Transcription';
 import SEOSalesContent from './components/SEOSalesContent';
 import CreativeStudio from './components/CreativeStudio';
+import ImageStudio from './components/ImageStudio';
+import MusicStudio from './components/MusicStudio';
+import VideoStudio from './components/VideoStudio';
+import MarketingCopyStudio from './components/MarketingCopyStudio';
+import AILab from './components/AILab';
 import YouTubeHub from './components/YouTubeHub';
 import AccountHub from './components/AccountHub';
 import MaintenanceAgent from './components/MaintenanceAgent';
+import OnboardingTour from './components/OnboardingTour';
 import ErrorBoundary from './components/ErrorBoundary';
 import { MubuslinkPricing } from './components/MubuslinkPricing';
 import { AuthProvider, useAuth } from './context/AuthContext';
@@ -109,8 +115,16 @@ const AppContent: React.FC = () => {
         return <WebsiteBuilder />;
       case 'templates':
         return <Templates onNavigate={(tab) => setActiveTab(tab)} />;
-      case 'image-finder':
-        return <ImageFinder />;
+      case 'ai-lab':
+        return <AILab />;
+      case 'image-studio':
+        return <ImageStudio />;
+      case 'music-studio':
+        return <MusicStudio />;
+      case 'video-studio':
+        return <VideoStudio />;
+      case 'marketing-copy':
+        return <MarketingCopyStudio />;
       case 'fonts-animations':
         return <FontsAnimations />;
       case 'chatbot':
@@ -154,6 +168,7 @@ const AppContent: React.FC = () => {
 
   return (
     <div className="flex h-screen bg-slate-950 overflow-hidden">
+      <OnboardingTour />
       <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} />
       <main className="flex-1 overflow-y-auto">
         {!user ? (

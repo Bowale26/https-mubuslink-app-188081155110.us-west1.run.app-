@@ -144,7 +144,14 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab }) => {
           )}
           {!isCollapsed && (
             <div className="flex-1 overflow-hidden">
-              <p className="text-sm font-semibold text-slate-200 truncate">{profile?.displayName || 'User'}</p>
+              <div className="flex items-center gap-2">
+                <p className="text-sm font-semibold text-slate-200 truncate">{profile?.displayName || 'User'}</p>
+                {profile?.role === 'admin' && (
+                  <span className="px-1.5 py-0.5 bg-blue-600/20 text-blue-400 text-[8px] font-black uppercase tracking-tighter rounded-md border border-blue-500/20">
+                    Admin
+                  </span>
+                )}
+              </div>
               <p className="text-xs text-slate-500 truncate">{profile?.email}</p>
             </div>
           )}

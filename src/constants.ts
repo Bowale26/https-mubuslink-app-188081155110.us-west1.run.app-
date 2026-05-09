@@ -15,15 +15,22 @@ import {
   ShieldCheck,
   Video,
   Youtube,
-  User
+  User,
+  Brain,
+  Music,
+  Megaphone
 } from 'lucide-react';
 import { NavItem } from './types';
 
 export const NAV_ITEMS: NavItem[] = [
   { id: 'website-builder', title: 'Website Builder', icon: Layout, path: '/website-builder' },
   { id: 'templates', title: 'Templates', icon: FileText, path: '/templates' },
+  { id: 'ai-lab', title: 'AI SuperLab', icon: Brain, path: '/ai-lab' },
+  { id: 'image-studio', title: 'Image Studio', icon: ImageIcon, path: '/image-studio' },
+  { id: 'music-studio', title: 'Audio Symphony', icon: Music, path: '/music-studio' },
+  { id: 'video-studio', title: 'Neural Cinema', icon: Video, path: '/video-studio' },
+  { id: 'marketing-copy', title: 'Marketing Engine', icon: Megaphone, path: '/marketing-copy' },
   { id: 'seo-sales', title: 'SEO & Sales Content', icon: TrendingUp, path: '/seo-sales' },
-  { id: 'image-finder', title: 'AI Image Finder', icon: ImageIcon, path: '/image-finder' },
   { id: 'fonts-animations', title: 'Fonts & Animations', icon: Type, path: '/fonts-animations' },
   { id: 'chatbot', title: 'Chat Bot', icon: MessageSquare, path: '/chatbot' },
   { id: 'editor', title: 'Editor', icon: Edit3, path: '/editor' },

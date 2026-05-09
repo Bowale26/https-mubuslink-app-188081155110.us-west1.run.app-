@@ -17,6 +17,8 @@ import {
   Globe
 } from 'lucide-react';
 import { generateSEOSalesContent, getPerformanceScore, runSEOAudit } from '../services/geminiService';
+import { GoogleGenAI } from "@google/genai";
+import { toast } from 'sonner';
 import Markdown from 'react-markdown';
 
 interface PerformanceScore {
@@ -128,6 +130,26 @@ const SEOSalesContent: React.FC = () => {
   };
 
   const [copied, setCopied] = useState(false);
+  const [isSummarizing, setIsSummarizing] = useState(false);
+
+  const handleSummarize = async () => {
+    if (!content.trim()) return;
+    setIsSummarizing(true);
+    try {
+      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+      const prompt = `Summarize the following content in 3 high-impact bullet points for a busy executive: ${content}`;
+      const response = await ai.models.generateContent({
+        model: 'gemini-1.5-flash',
+        contents: [{ parts: [{ text: prompt }] }]
+      });
+      toast.success("Summary generated!");
+      setContent(prev => `## 📝 Executive Summary\n${response.text}\n---\n${prev}`);
+    } catch (error) {
+      toast.error("Summarization failed.");
+    } finally {
+      setIsSummarizing(false);
+    }
+  };
 
   return (
     <div className="p-8 space-y-8 bg-slate-950 min-h-full text-slate-200">
@@ -200,13 +222,33 @@ const SEOSalesContent: React.FC = () => {
                   </div>
                   <div>
                     <label className="text-sm font-bold text-slate-400 mb-2 block">Target Keywords (Optional)</label>
-                    <input 
-                      type="text" 
-                      value={keywords}
-                      onChange={(e) => setKeywords(e.target.value)}
-                      placeholder="e.g., SEO, AI, content marketing"
-                      className="w-full p-4 bg-slate-800 border border-slate-700 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none transition-all"
-                    />
+                    <div className="flex gap-2">
+                       <input 
+                        type="text" 
+                        value={keywords}
+                        onChange={(e) => setKeywords(e.target.value)}
+                        placeholder="e.g., SEO, AI, content marketing"
+                        className="flex-1 p-4 bg-slate-800 border border-slate-700 rounded-2xl focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                      />
+                      <button 
+                        onClick={async () => {
+                          if (!topic) return;
+                          setIsAnalyzing(true);
+                          const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+                          const res = await ai.models.generateContent({
+                            model: 'gemini-1.5-flash',
+                            contents: [{ parts: [{ text: `Suggest 3 high-volume SEO keywords for: ${topic}` }] }]
+                          });
+                          setKeywords(res.text.split('\n').join(', '));
+                          setIsAnalyzing(false);
+                          toast.success("Keywords discovered!");
+                        }}
+                        className="p-4 bg-slate-800 border border-slate-700 rounded-2xl text-slate-400 hover:text-blue-500 transition-all"
+                        title="AI Keyword Assist"
+                      >
+                         <Sparkles size={18} />
+                      </button>
+                    </div>
                   </div>
                 </div>
                 <div className="flex gap-2">
@@ -272,6 +314,14 @@ const SEOSalesContent: React.FC = () => {
                     <h3 className="font-bold">Content Preview</h3>
                   </div>
                   <div className="flex gap-2">
+                    <button 
+                      onClick={handleSummarize}
+                      disabled={isSummarizing || !content}
+                      className="flex items-center gap-2 px-4 py-1.5 bg-slate-800 hover:bg-slate-750 text-slate-300 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all"
+                    >
+                      {isSummarizing ? <RefreshCw className="animate-spin" size={12} /> : <Sparkles size={12} />}
+                      Summarize
+                    </button>
                     <button onClick={copyToClipboard} className="p-2 hover:bg-slate-800 rounded-lg text-slate-400">
                       {copied ? <CheckCircle2 size={18} className="text-emerald-500" /> : <Copy size={18} />}
                     </button>
@@ -289,9 +339,14 @@ const SEOSalesContent: React.FC = () => {
         ) : (
           <div className="xl:col-span-12 space-y-8 max-w-4xl mx-auto w-full">
             <div className="bg-slate-900 border border-slate-800 p-8 rounded-3xl shadow-xl space-y-6">
-              <div className="flex items-center gap-3 mb-2">
-                <Globe className="text-blue-500" size={24} />
-                <h2 className="text-xl font-bold">Expert SEO Audit</h2>
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-3">
+                  <Globe className="text-blue-500" size={24} />
+                  <h2 className="text-xl font-bold">Expert SEO Audit</h2>
+                </div>
+                <div className="flex items-center gap-2 text-[10px] font-black text-slate-500 uppercase tracking-widest">
+                  <TrendingUp size={12} /> Live Matrix
+                </div>
               </div>
               <textarea 
                 value={auditTarget}
@@ -311,13 +366,28 @@ const SEOSalesContent: React.FC = () => {
             {auditResults && (
               <div className="space-y-6">
                 <div className="grid grid-cols-3 gap-6">
-                  <div className="bg-slate-900 border border-slate-800 p-6 rounded-3xl text-center">
-                    <p className="text-[10px] text-slate-500 uppercase font-bold mb-2">Score</p>
-                    <p className="text-4xl font-bold text-emerald-500">{auditResults.healthScore}</p>
+                  <div className="bg-slate-900 border border-slate-800 p-6 rounded-3xl text-center flex flex-col items-center justify-center space-y-2">
+                    <p className="text-[10px] text-slate-500 uppercase font-black tracking-widest">Health Score</p>
+                    <p className="text-5xl font-black text-emerald-500">{auditResults.healthScore}</p>
+                    <div className="w-12 h-1 bg-emerald-500/20 rounded-full overflow-hidden">
+                       <div className="h-full bg-emerald-500" style={{ width: `${auditResults.healthScore}%` }} />
+                    </div>
                   </div>
-                  <div className="bg-slate-900 border border-slate-800 p-6 rounded-3xl col-span-2">
-                    <p className="text-[10px] text-slate-500 uppercase font-bold mb-2">Expert Strategy</p>
-                    <p className="text-sm text-slate-300">{auditResults.metaOptimizations.title}</p>
+                  <div className="bg-slate-900 border border-slate-800 p-6 rounded-3xl col-span-2 space-y-4">
+                    <div className="flex items-center justify-between">
+                       <p className="text-[10px] text-slate-500 uppercase font-black tracking-widest">Expert Strategy & Keyword Gaps</p>
+                       <ShieldAlert size={16} className="text-amber-500" />
+                    </div>
+                    <div className="space-y-4">
+                      <p className="text-sm text-slate-300 leading-relaxed">{auditResults.metaOptimizations.title}</p>
+                      <div className="flex flex-wrap gap-2">
+                        {['AI Performance', 'Cloud Scale', 'Real-time BI', 'Predictive Analysis'].map(kw => (
+                          <span key={kw} className="px-2 py-1 bg-slate-800 rounded-lg text-[10px] font-bold text-slate-400 border border-slate-700">
+                            +{kw}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
