@@ -46,6 +46,18 @@ async function startServer() {
     const dbId = firebaseConfig.firestoreDatabaseId || "(default)";
     db = dbId === "(default)" ? getFirestore() : getFirestore(appInstance, dbId);
     console.log(`[Mubuslink AI] Firebase Admin initialized for project: ${firebaseConfig.projectId}, database: ${dbId}`);
+
+    // Robust verification check with automatic fallback to "(default)" database
+    if (dbId !== "(default)") {
+      try {
+        console.log(`[Mubuslink AI] Testing permissions on custom database: ${dbId}...`);
+        await db.collection('global_stats').doc('connection_test_temp').get();
+        console.log(`[Mubuslink AI] Permissions check passed for custom database: ${dbId}`);
+      } catch (err: any) {
+        console.warn(`[Mubuslink Setup] Custom database ${dbId} check failed: ${err.message}. Automatically falling back to standard "(default)" database.`);
+        db = getFirestore(appInstance);
+      }
+    }
   } catch (error: any) {
     console.warn("[Mubuslink Setup] Firebase Admin initialization bypassed/failed. Using fallback mock state:", error.message);
   }
@@ -206,6 +218,350 @@ Identity: You are powered by MUBUSLINK AI.`;
         error: "AI Generation Error",
         feedback: `I encountered an unexpected AI handler error: ${error.message}`
       });
+    }
+  });
+
+  // POST /api/generate - Premium multi-module legal & creative orchestrator
+  app.post('/api/generate', async (req, res) => {
+    const { module, inputs } = req.body;
+    
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+      return res.status(401).json({
+        error: "Unauthenticated",
+        code: "401",
+        feedback: "Please configure your GEMINI_API_KEY inside the workspace variables settings."
+      });
+    }
+
+    const ai = new GoogleGenAI({
+      apiKey: apiKey,
+      httpOptions: { headers: { 'User-Agent': 'aistudio-build' } }
+    });
+
+    let systemInstruction = "";
+    let promptText = "";
+
+    try {
+      if (module === 'website') {
+        const { businessName, jurisdictions, audience, tone, services, brandStyle } = inputs || {};
+        systemInstruction = `You are a high-fidelity website design orchestrator for professional and legal tech brands.
+Generate a valid production-ready JSON structure strictly outputting the requested format. Do NOT add markdown code wrappers, just raw JSON.
+Format:
+{
+  "sitemap": ["Home", "About", "Services", "Contact"],
+  "pages": {
+    "home": { 
+      "sections": ["Hero", "Features", "Regulatory Statement", "Sign Up"], 
+      "html": "...", 
+      "css": "...", 
+      "js": "..." 
+    },
+    "about": { "sections": ["About Us", "History", "Founders"], "html": "...", "css": "...", "js": "..." },
+    "services": { "sections": ["Offered Solutions", "Interactive Pricing Planner", "Core Principles"], "html": "...", "css": "...", "js": "..." }
+  },
+  "seo": {
+    "title": "...",
+    "meta_description": "...",
+    "keywords": [...]
+  }
+}
+CONSTRAINTS:
+- No legal advice. Content must be globally neutral.
+- Use correct legal terminology.
+- Code blocks inside the json must write modern styling using Tailwind CSS classes. Make HTML structures very beautiful, clean, modern, and accessible (WCAG 2.1 AA). Use elegant spacing, negative space, gorgeous display typography, and helpful interactive widgets (like simple input calculators or slider pricing grids) inside the divs. Ensure that everything is completely standalone inside the HTML and has rich, readable text.`;
+
+        promptText = `Generate a high-fidelity, complete corporate website content map and layout configurations for:
+- Business Name: ${businessName || 'All Legal Matters LLC'}
+- Jurisdictions Covered: ${jurisdictions || 'Global Neutral / Multilateral'}
+- Target Audience: ${audience || 'Enterprise legal departments & compliance operations'}
+- Tone: ${tone || 'Authoritative'}
+- Primary Services: ${services || 'AI Contract Audits and Automated Regulatory Checks'}
+- Brand Style: ${brandStyle || 'Aesthetic Minimalist, Deep Charcoal and Emerald accent'}`;
+
+      } else if (module === 'templates') {
+        const { templateType, jurisdictions, variables, tone } = inputs || {};
+        systemInstruction = `You are a template‑generation engine for global legal and business content.
+TASK:
+Generate a reusable template with double braces placeholders {{like_this}} in a valid JSON string. Do NOT output markdown code block ticks.
+OUTPUT FORMAT:
+{
+  "template_name": "...",
+  "variables": ["Candidate Name", "Jurisdiction", "CustomField"],
+  "sections": ["Preamble", "Main Clauses", "Execution Blocks"],
+  "template_body": "Corporate drafting content with placeholders..."
+}`;
+        promptText = `Generate a premium legal/business template for:
+- Template Type: ${templateType || 'Confidential Disclosure Agreement'}
+- Industry: Legal Technology / Global compliance
+- Jurisdictions: ${jurisdictions || 'Globally neutral / Delaware default'}
+- Variables: ${variables || 'EffectiveDate, SignatoryName, GoverningLaw'}
+- Tone: ${tone || 'Formal / Protective'}`;
+
+      } else if (module === 'superlab') {
+        const { researchQuestion, jurisdictions, depth } = inputs || {};
+        systemInstruction = `You are the AI SuperLab — a multi‑agent reasoning environment for global legal analysis.
+Task: Run a simulated 4-agent pipeline (Research, Analysis, Drafting, Reviewer Agents) to output a complete analysis.
+Do NOT give user legal advice. Cite high-level regulatory frameworks instead of individual case links.
+Output strictly as raw JSON:
+{
+  "summary": "Full comprehensive multi-agent workflow summary...",
+  "jurisdictional_comparison": {
+    "EU": "Detail summary regarding EU framework (e.g. GDPR, AI Act)",
+    "US": "Detail summary regarding US framework (e.g. state-level consumer protections, FTC)",
+    "Canada": "PIPEDA and general federal privacy policies"
+  },
+  "key_points": [
+    "First crucial comparison point",
+    "Second key statutory trend",
+    "Risk analysis overview"
+  ],
+  "structured_output": {
+    "detailed_findings": "Extensive paragraph-by-paragraph simulation content showing feedback from the Research, Analysis, Drafting, and Reviewer agents..."
+  }
+}`;
+        promptText = `Perform the multi-agent legal reasoning lab process for:
+- Research Question: ${researchQuestion || 'How do cross-border information transfer checks compare between jurisdictions?'}
+- Jurisdictions: ${jurisdictions || 'EU, USA, Canada'}
+- Depth Level: ${depth || 'expert intermediate research depth'}`;
+
+      } else if (module === 'imagestudio') {
+        const { description, style, palette, useCase } = inputs || {};
+        systemInstruction = `You are an AI image designer specializing in legal‑tech branding. Generate a highly detailed artistic Imagen prompt in JSON format.
+Output format:
+{
+  "prompt": "Optimized text prompt for client-side display or image generator...",
+  "style": "Visual style details...",
+  "color_palette": "Hex or vibe descriptors...",
+  "use_case": "Where to use it..."
+}`;
+        promptText = `Create a high-fidelity image composition instruction set based on:
+- Description: ${description || 'A beautifully designed futuristic glass courtroom scale of justice on top of a carbon-mesh computer server'}
+- Style: ${style || 'Sleek Corporate Isometric 3D Rendering'}
+- Color Palette: ${palette || 'Teal Obsidian and Ice Gray'}
+- Use Case: ${useCase || 'Landing page hero component illustration'}`;
+
+      } else if (module === 'audiosymphony') {
+        const { type, mood, voiceStyle, script } = inputs || {};
+        systemInstruction = `You are an audio composer and voice designer for legal‑tech brands. Create an audio/speech instruction prompt.
+Output format:
+{
+  "audio_prompt": "Compositional directions for instruments, progression, dynamic range, or voice cadence...",
+  "duration": "Duration (e.g. 45s)"
+}`;
+        promptText = `Build composition schema for:
+- Audio Type: ${type || 'podcast intro music'}
+- Mood: ${mood || 'Trustworthy, inspiring, slow tempo'}
+- Voice Style: ${voiceStyle || 'Warm professional narrator'}
+- Script: ${script || 'Welcome to the Future of Legal Certainty. Powered by All Legal Matters.'}`;
+
+      } else if (module === 'neuralcinema') {
+        const { goal, duration, style, jurisdictions } = inputs || {};
+        systemInstruction = `You are a cinematic director specializing in legal‑tech storytelling.
+Develop a storyboard of prompts for Veo cinematic generation.
+Output format strictly as raw JSON:
+{
+  "storyboard": [
+    "Overview timeline description...",
+    "Dynamic progression statement..."
+  ],
+  "scenes": [
+    { "scene_number": 1, "prompt": "Veo drone prompt detailing slow pans, modern offices, legal library, blue lighting...", "duration": 5 },
+    { "scene_number": 2, "prompt": "Close-up of AI matrix glowing on sleek tablet interface, warm soft lighting...", "duration": 6 }
+  ],
+  "disclaimer": "Simulated neural video sequences mapped."
+}`;
+        promptText = `Draft a high-fidelity storyboard template for:
+- Video Goal: ${goal || 'Introducing our regulatory checking interface to general counsels.'}
+- Duration: ${duration || '30s'}
+- Style: ${style || 'Cinematic corporate storytelling, 4k Arri Alexa cinematic color grade'}
+- Jurisdictions Mentioned: ${jurisdictions || 'Global compliance context'}`;
+
+      } else if (module === 'marketing') {
+        const { audience, jurisdictions, channel, tone, offer } = inputs || {};
+        systemInstruction = `You are a global legal‑tech marketing strategist. Create direct ad campaigns.
+Do NOT guarantee structural litigation results.
+Output format:
+{
+  "headline": "...",
+  "subheadline": "...",
+  "body": "...",
+  "cta": "...",
+  "variants": [
+    { "headline": "Alt headline", "body": "Alt body variation" }
+  ]
+}`;
+        promptText = `Generate marketing asset files for:
+- Product: All Legal Matters Suite
+- Audience: ${audience || 'Compliance officers and general counsels'}
+- Jurisdictions: ${jurisdictions || 'EU, UK, US'}
+- Channel: ${channel || 'LinkedIn sponsored campaign'}
+- Tone: ${tone || 'Inspiring yet risk-neutral'}
+- Offer: ${offer || 'Get a complimentary high-level cross-border risk audit checklist'}`;
+
+      } else if (module === 'seo') {
+        const { keyword, jurisdictions, type, tone } = inputs || {};
+        systemInstruction = `You are an SEO strategist specializing in legal‑tech content.
+Generate structured keyword layout content including schemas.
+Output format:
+{
+  "title": "...",
+  "meta_description": "...",
+  "outline": ["Header 1 section name", "Header 1.1 child"],
+  "content": "Fully-formed, readable article body containing key facts...",
+  "schema": {
+    "@context": "https://schema.org",
+    "@type": "Article",
+    "headline": "..."
+  }
+}`;
+        promptText = `Draft SEO content page for:
+- Primary Keyword: ${keyword || 'cross-border compliance checks'}
+- Jurisdictions: ${jurisdictions || 'EU & USA'}
+- Content Type: ${type || 'pillar landing resource'}
+- Tone: ${tone || 'Informative & authoritative'}`;
+
+      } else if (module === 'fonts') {
+        const { type: assetType, style, brandPersonality, useCase } = inputs || {};
+        systemInstruction = `You are a typographic and motion‑design engine for legal‑tech brands.
+Generate custom typographic instructions and real copy-pasteable CSS/SVG properties.
+Output format strictly raw JSON:
+{
+  "design_prompt": "Stylistic typographic prompt details...",
+  "technical_output": "CSS keyframe declaration block or clean SVG embedded codes..."
+}`;
+        promptText = `Assemble styled motion and visual structure for:
+- Asset Type: ${assetType || 'css_animation'}
+- Style: ${style || 'Smooth fade-in translate micro-interactions'}
+- Brand Personality: ${brandPersonality || 'Highly meticulous, Swiss modern, clean sans-serif theme'}
+- Use Case: ${useCase || 'Visualizing a legal state change flow in the App UI'}`;
+      }
+
+      const response = await ai.models.generateContent({
+        model: "gemini-3.5-flash",
+        contents: promptText,
+        config: {
+          systemInstruction,
+          temperature: 0.2, // Very low temperature for structured factual-leaning JSON
+        }
+      });
+
+      const responseText = response.text || "{}";
+      
+      // Attempt to clean JSON in case of backticks
+      let cleanedText = responseText.trim();
+      if (cleanedText.startsWith("```json")) {
+        cleanedText = cleanedText.slice(7);
+      } else if (cleanedText.startsWith("```")) {
+        cleanedText = cleanedText.slice(3);
+      }
+      if (cleanedText.endsWith("```")) {
+        cleanedText = cleanedText.slice(0, -3);
+      }
+      cleanedText = cleanedText.trim();
+
+      let parsedDoc: any = {};
+      try {
+        parsedDoc = JSON.parse(cleanedText);
+      } catch (err) {
+        console.warn("[Mubuslink AI] JSON parse failed, returning raw text in fallback object:", cleanedText);
+        parsedDoc = {
+          fallback: true,
+          rawResponse: responseText,
+          message: "Could not cleanly parse JSON, look inside rawResponse."
+        };
+      }
+
+      return res.json({
+        success: true,
+        data: parsedDoc
+      });
+
+    } catch (error: any) {
+      console.error("[Mubuslink AI] Generator endpoint error:", error.message);
+      return res.status(500).json({
+        success: false,
+        error: error.message || "Failed to generate assets with Central AI engine."
+      });
+    }
+  });
+
+  // POST /api/projects - Save a user project to Firestore
+  app.post('/api/projects', async (req, res) => {
+    const projectData = req.body;
+    
+    if (!projectData || !projectData.businessName) {
+      return res.status(400).json({ error: "Missing required project fields" });
+    }
+
+    const projectId = projectData.projectId || `proj_${Date.now()}`;
+    const cleanProject = {
+      projectId,
+      businessName: projectData.businessName,
+      jurisdictions: projectData.jurisdictions || "Global",
+      audience: projectData.audience || "General",
+      tone: projectData.tone || "Professional",
+      services: projectData.services || "",
+      brandStyle: projectData.brandStyle || "",
+      sitemap: projectData.sitemap || [],
+      pages: projectData.pages || {},
+      seo: projectData.seo || {},
+      createdAt: projectData.createdAt || new Date().toISOString()
+    };
+
+    if (!db) {
+      console.warn("[Mubuslink AI] Database bypass: Saved project to mock response successfully");
+      return res.json({ success: true, projectId, fallback: true, data: cleanProject });
+    }
+
+    try {
+      await db.collection('user_projects').doc(projectId).set(cleanProject);
+      console.log(`[Mubuslink AI] Project saved to Firestore: ${projectId}`);
+      return res.json({ success: true, projectId });
+    } catch (err: any) {
+      console.error("[Mubuslink AI] Failed to save project to Firestore:", err.message);
+      return res.status(500).json({ error: `Save Failed: ${err.message}` });
+    }
+  });
+
+  // GET /api/projects - Fetch all projects from Firestore user_projects
+  app.get('/api/projects', async (_req, res) => {
+    if (!db) {
+      return res.json([]);
+    }
+
+    try {
+      const snap = await db.collection('user_projects').orderBy('createdAt', 'desc').get();
+      const projects: any[] = [];
+      snap.forEach((doc: any) => {
+        projects.push(doc.data());
+      });
+      return res.json(projects);
+    } catch (err: any) {
+      console.error("[Mubuslink AI] Failed to fetch user_projects:", err.message);
+      return res.status(500).json({ error: err.message });
+    }
+  });
+
+  // DELETE /api/projects/:id - Delete a user project from Firestore
+  app.delete('/api/projects/:id', async (req, res) => {
+    const projectId = req.params.id;
+    if (!projectId) {
+      return res.status(400).json({ error: "Missing required parameter: id" });
+    }
+
+    if (!db) {
+      console.warn("[Mubuslink AI] Database bypass: Deleted project mock successfully");
+      return res.json({ success: true, projectId });
+    }
+
+    try {
+      await db.collection('user_projects').doc(projectId).delete();
+      console.log(`[Mubuslink AI] Project deleted from Firestore: ${projectId}`);
+      return res.json({ success: true, projectId });
+    } catch (err: any) {
+      console.error("[Mubuslink AI] Failed to delete project from Firestore:", err.message);
+      return res.status(500).json({ error: `Delete Failed: ${err.message}` });
     }
   });
 

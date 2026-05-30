@@ -1,0 +1,116 @@
+{
+  "entities": {
+    "GlobalStats": {
+      "title": "GlobalStats",
+      "description": "Global KPI statistics for Mubuslink AI",
+      "type": "object",
+      "required": [
+        "activeWebsites",
+        "totalVisitors",
+        "aiWordsWritten",
+        "botConversations",
+        "trialConversions",
+        "totalRevenue",
+        "totalSignups"
+      ],
+      "properties": {
+        "activeWebsites": {
+          "type": "integer",
+          "description": "Number of active managed websites"
+        },
+        "totalVisitors": {
+          "type": "integer",
+          "description": "Total visitor hits tracked"
+        },
+        "aiWordsWritten": {
+          "type": "integer",
+          "description": "Total words authored by the Gemini agent"
+        },
+        "botConversations": {
+          "type": "integer",
+          "description": "Total chat interactions"
+        },
+        "trialConversions": {
+          "type": "integer",
+          "description": "Total trial signups converted"
+        },
+        "totalRevenue": {
+          "type": "integer",
+          "description": "Total processed revenue"
+        },
+        "totalSignups": {
+          "type": "integer",
+          "description": "Total platform signups"
+        }
+      }
+    },
+    "UserProject": {
+      "title": "UserProject",
+      "description": "Generated website project configuration and layouts",
+      "type": "object",
+      "required": [
+        "projectId",
+        "businessName",
+        "sitemap",
+        "seo",
+        "createdAt"
+      ],
+      "properties": {
+        "projectId": {
+          "type": "string",
+          "description": "Unique project identifier"
+        },
+        "businessName": {
+          "type": "string",
+          "description": "The corporate legal entity name"
+        },
+        "jurisdictions": {
+          "type": "string",
+          "description": "Active legal regulatory scopes"
+        },
+        "audience": {
+          "type": "string",
+          "description": "Audience focus details"
+        },
+        "tone": {
+          "type": "string",
+          "description": "Brand tone preference"
+        },
+        "services": {
+          "type": "string",
+          "description": "Audited services description"
+        },
+        "brandStyle": {
+          "type": "string",
+          "description": "Stylistic parameters used"
+        },
+        "sitemap": {
+          "type": "array",
+          "description": "Array of page titles in navigation map"
+        },
+        "pages": {
+          "type": "object",
+          "description": "Map containing page structures and responsive layouts"
+        },
+        "seo": {
+          "type": "object",
+          "description": "Metadata details"
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Creation timestamp"
+        }
+      }
+    }
+  },
+  "firestore": {
+    "global_stats/{docId}": {
+      "schema": "GlobalStats",
+      "description": "Collection storing global Mubuslink platform KPIs and state diagnostics"
+    },
+    "user_projects/{projectId}": {
+      "schema": "UserProject",
+      "description": "Collection storing structural AI-generated website layouts and designs"
+    }
+  }
+}

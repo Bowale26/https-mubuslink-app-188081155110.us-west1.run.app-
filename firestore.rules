@@ -1,0 +1,57 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Global safety net: default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    // Validation helper for GlobalStats entity
+    function isValidGlobalStats(data) {
+      return data.activeWebsites is int
+          && data.totalVisitors is int
+          && data.aiWordsWritten is int
+          && data.botConversations is int
+          && data.trialConversions is int
+          && data.totalRevenue is int
+          && data.totalSignups is int;
+    }
+
+    // Validation helper for UserProject entity
+    function isValidUserProject(data) {
+      return data.projectId is string
+          && data.businessName is string
+          && data.sitemap is list
+          && data.seo is map;
+    }
+
+    // Match block for global_stats
+    match /global_stats/{docId} {
+      // Let's allow public read access for general platform KPIs
+      allow get, list: if true;
+
+      // Allow writes only if valid ID is used and data integrity is correct
+      allow create, update: if isValidId(docId) && isValidGlobalStats(request.resource.data);
+      allow delete: if false; // Disallow deleting vital KPI records
+    }
+
+    // Match block for user_projects
+    match /user_projects/{projectId} {
+      // Allow general public read access for published/crafted client sites
+      allow read, get, list: if true;
+
+      // Allow creating and saving projects using correct payload checks
+      allow create, update: if isValidId(projectId) && isValidUserProject(request.resource.data);
+      allow delete: if true; // Allow users to clean up projects
+    }
+  }
+}
