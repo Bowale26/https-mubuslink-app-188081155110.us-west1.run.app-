@@ -272,7 +272,7 @@ CONSTRAINTS:
 - Code blocks inside the json must write modern styling using Tailwind CSS classes. Make HTML structures very beautiful, clean, modern, and accessible (WCAG 2.1 AA). Use elegant spacing, negative space, gorgeous display typography, and helpful interactive widgets (like simple input calculators or slider pricing grids) inside the divs. Ensure that everything is completely standalone inside the HTML and has rich, readable text.`;
 
         promptText = `Generate a high-fidelity, complete corporate website content map and layout configurations for:
-- Business Name: ${businessName || 'All Legal Matters LLC'}
+- Business Name: ${businessName || 'MUBUSLINK BUS APP'}
 - Jurisdictions Covered: ${jurisdictions || 'Global Neutral / Multilateral'}
 - Target Audience: ${audience || 'Enterprise legal departments & compliance operations'}
 - Tone: ${tone || 'Authoritative'}
@@ -353,7 +353,7 @@ Output format:
 - Audio Type: ${type || 'podcast intro music'}
 - Mood: ${mood || 'Trustworthy, inspiring, slow tempo'}
 - Voice Style: ${voiceStyle || 'Warm professional narrator'}
-- Script: ${script || 'Welcome to the Future of Legal Certainty. Powered by All Legal Matters.'}`;
+- Script: ${script || 'Welcome to the Future of MUBUSLINK BUS APP.'}`;
 
       } else if (module === 'neuralcinema') {
         const { goal, duration, style, jurisdictions } = inputs || {};
@@ -392,7 +392,7 @@ Output format:
   ]
 }`;
         promptText = `Generate marketing asset files for:
-- Product: All Legal Matters Suite
+- Product: MUBUSLINK BUS APP Suite
 - Audience: ${audience || 'Compliance officers and general counsels'}
 - Jurisdictions: ${jurisdictions || 'EU, UK, US'}
 - Channel: ${channel || 'LinkedIn sponsored campaign'}

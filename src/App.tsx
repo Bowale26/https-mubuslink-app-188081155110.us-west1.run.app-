@@ -191,7 +191,7 @@ export default function App() {
     type: "voiceover",
     mood: "Sophisticated, authoritative, encouraging and trust-filled",
     voiceStyle: "British Executive Voice, deep timbre and subtle reverb",
-    script: "Welcome to All Legal Matters AI. We provide automated, neutral, and globally consistent compliance checks to safeguard your cross-border enterprise."
+    script: "Welcome to MUBUSLINK BUS APP AI. We provide automated, neutral, and globally consistent compliance checks to safeguard your cross-border enterprise."
   });
   const [audioOutput, setAudioOutput] = useState<any | null>(null);
   const [generatingAudio, setGeneratingAudio] = useState<boolean>(false);
@@ -773,7 +773,7 @@ export default function App() {
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="font-black text-sm tracking-tight text-white font-display">All Legal Matters</h1>
+              <h1 className="font-black text-sm tracking-tight text-white font-display">MUBUSLINK BUS APP</h1>
               <span className="text-[9px] px-1.5 py-0.5 bg-emerald-500/10 border border-emerald-500/20 rounded-md font-bold text-emerald-400 font-mono tracking-wider">SECURE OS</span>
             </div>
             <p className="text-[10px] text-slate-500 font-mono">Google AI Studio • Universal Legal Tech Platform</p>
@@ -898,7 +898,7 @@ export default function App() {
           <div className="mb-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 border-b border-slate-900 pb-5" id="section-meta-head">
             <div>
               <div className="flex items-center gap-2 mb-1">
-                <span className="text-[10px] uppercase font-mono tracking-widest text-slate-500 font-semibold">ALL LEGAL MATTERS PLATFORM</span>
+                <span className="text-[10px] uppercase font-mono tracking-widest text-slate-500 font-semibold">MUBUSLINK BUS APP PLATFORM</span>
                 <span className="text-[10px] text-emerald-500">•</span>
                 <span className="text-[10px] text-slate-400 uppercase font-mono font-medium">Orchestrated Layer API</span>
               </div>
@@ -2850,7 +2850,7 @@ ${marketingOutput.body || "body empty"}
       {/* Persistent global logs & diagnostic footer status bar */}
       <footer className="border-t border-slate-900 bg-slate-950/70 py-3.5 px-6 flex flex-col md:flex-row justify-between items-center gap-3.5 text-[10px] text-slate-500 font-mono">
         <div>
-          &copy; {new Date().getFullYear()} All Legal Matters Workspace • Google AI Studio Orchestrated Backend Enterprise API
+          &copy; {new Date().getFullYear()} MUBUSLINK BUS APP Workspace • Google AI Studio Orchestrated Backend Enterprise API
         </div>
         <div className="flex items-center gap-4">
           <span className="text-emerald-500 flex items-center gap-1">
@@ -2887,7 +2887,7 @@ function getOfflineFallback(moduleName: string, inputs: any) {
           }
         },
         "seo": {
-          "title": `${inputs.businessName || 'All Legal Matters'} - Automated Global Regulatory Checks`,
+          "title": `${inputs.businessName || 'MUBUSLINK BUS APP'} - Automated Global Regulatory Checks`,
           "meta_description": `Safeguard your multi-jurisdiction entity using high-fidelity automated verification mapped natively in ${inputs.jurisdictions || 'cross-border scopes'}.`,
           "keywords": ["regulatory checker", "automated auditing", "corporate protection", "Swiss minimalist layout"]
         }
