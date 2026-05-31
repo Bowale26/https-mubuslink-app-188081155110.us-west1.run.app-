@@ -31,7 +31,13 @@ import {
   History,
   Trash2,
   Edit,
-  X
+  X,
+  Eye,
+  Smartphone,
+  Tablet,
+  Monitor,
+  CheckSquare,
+  Square
 } from 'lucide-react';
 
 interface KPIStats {
@@ -249,6 +255,66 @@ export default function App() {
   const [autoSaveStatus, setAutoSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'failed'>('idle');
   const [refreshingCache, setRefreshingCache] = useState<boolean>(false);
 
+  // --- NEW: Website visual Simulator / Preview Modal States ---
+  const [isPreviewModalOpen, setIsPreviewModalOpen] = useState<boolean>(false);
+  const [previewPage, setPreviewPage] = useState<string>('home');
+  const [previewDevice, setPreviewDevice] = useState<'desktop' | 'tablet' | 'mobile'>('desktop');
+
+  // --- NEW: SEO Editor manual inputs ---
+  const [editedSeoTitle, setEditedSeoTitle] = useState<string>('');
+  const [editedSeoDescription, setEditedSeoDescription] = useState<string>('');
+  const [editedSeoKeywords, setEditedSeoKeywords] = useState<string>('');
+  const [editedSeoContent, setEditedSeoContent] = useState<string>('');
+  const [seoSavedStatus, setSeoSavedStatus] = useState<boolean>(false);
+  const [seoTab, setSeoTab] = useState<'preview' | 'edit'>('preview');
+
+  // --- NEW: Multi-select database project deletion ---
+  const [selectedProjectIds, setSelectedProjectIds] = useState<string[]>([]);
+  const [bulkDeleting, setBulkDeleting] = useState<boolean>(false);
+
+  // --- NEW: Bulk Delete handler ---
+  const handleBulkDeleteProjects = async () => {
+    if (selectedProjectIds.length === 0) return;
+    if (!confirm(`Are you sure you want to permanently delete ${selectedProjectIds.length} selected project(s)?`)) return;
+
+    setBulkDeleting(true);
+    setSystemLogs(prev => [
+      `[${new Date().toLocaleTimeString()}] Bulk Deletion Request: Initiated removal of ${selectedProjectIds.length} projects from Firestore...`,
+      ...prev
+    ]);
+
+    let successCount = 0;
+    let failedCount = 0;
+
+    for (const projId of selectedProjectIds) {
+      try {
+        const res = await fetch(`/api/projects/${projId}`, {
+          method: 'DELETE'
+        });
+        const resData = await res.json();
+        if (resData.success) {
+          successCount++;
+          if (editingProjectId === projId) {
+            setEditingProjectId(null);
+          }
+        } else {
+          failedCount++;
+        }
+      } catch (err: any) {
+        console.error(`Failed to delete project ${projId}:`, err);
+        failedCount++;
+      }
+    }
+
+    setSystemLogs(prev => [
+      `[${new Date().toLocaleTimeString()}] Bulk Deletion Complete: Successfully deleted ${successCount} project(s), ${failedCount} failed.`,
+      ...prev
+    ]);
+
+    setSelectedProjectIds([]);
+    setBulkDeleting(false);
+  };
+
   // Global triggers
   const fetchStats = async () => {
     setLoadingStats(true);
@@ -448,6 +514,25 @@ export default function App() {
       unsubscribe();
     };
   }, []);
+
+  // --- NEW: Sync generated/loaded seoOutput to manual inputs ---
+  useEffect(() => {
+    if (seoOutput) {
+      setEditedSeoTitle(seoOutput.title || '');
+      setEditedSeoDescription(seoOutput.meta_description || '');
+      // If the keywords is an array, join them. If it's empty, use the seoParams.keyword as a starting point.
+      const rawKeywords = seoOutput.keywords 
+        ? (Array.isArray(seoOutput.keywords) ? seoOutput.keywords.join(', ') : seoOutput.keywords)
+        : (seoParams.keyword || '');
+      setEditedSeoKeywords(rawKeywords);
+      setEditedSeoContent(seoOutput.content || '');
+    } else {
+      setEditedSeoTitle('');
+      setEditedSeoDescription('');
+      setEditedSeoKeywords('');
+      setEditedSeoContent('');
+    }
+  }, [seoOutput]);
 
   // Serialized state key to safely track output updates without causing infinite rendering loops
   const siteOutputSerialized = siteOutput ? JSON.stringify(siteOutput) : "";
@@ -1505,23 +1590,71 @@ export default function App() {
                       </div>
                     </div>
 
-                    {/* Search Field */}
-                    <div className="relative mt-0.5">
-                      <Search size={11} className="absolute left-3 top-2.5 text-slate-500" />
-                      <input
-                        type="text"
-                        placeholder="Filter projects by business name..."
-                        value={projectSearchQuery}
-                        onChange={(e) => setProjectSearchQuery(e.target.value)}
-                        className="w-full bg-slate-950 border border-slate-900 focus:border-emerald-500/40 rounded-xl pl-8 pr-7 py-1.5 text-[10px] text-slate-200 outline-none transition-colors placeholder:text-slate-600 font-mono"
-                      />
-                      {projectSearchQuery && (
-                        <button
-                          onClick={() => setProjectSearchQuery('')}
-                          className="absolute right-3 top-2 text-slate-500 hover:text-slate-300 focus:outline-none font-sans"
-                        >
-                          ✕
-                        </button>
+                    {/* Search Field & Multi-Select Operations */}
+                    <div className="flex flex-col gap-2 mt-0.5">
+                      <div className="relative">
+                        <Search size={11} className="absolute left-3 top-2.5 text-slate-500" />
+                        <input
+                          type="text"
+                          placeholder="Filter projects by business name..."
+                          value={projectSearchQuery}
+                          onChange={(e) => setProjectSearchQuery(e.target.value)}
+                          className="w-full bg-slate-950 border border-slate-900 focus:border-emerald-500/40 rounded-xl pl-8 pr-7 py-1.5 text-[10px] text-slate-200 outline-none transition-colors placeholder:text-slate-600 font-mono"
+                        />
+                        {projectSearchQuery && (
+                          <button
+                            onClick={() => setProjectSearchQuery('')}
+                            className="absolute right-3 top-2 text-slate-500 hover:text-slate-300 focus:outline-none font-sans"
+                          >
+                            ✕
+                          </button>
+                        )}
+                      </div>
+
+                      {/* --- NEW: Multi-Select active action toolbar --- */}
+                      {savedProjects.length > 0 && (
+                        <div className="flex items-center justify-between px-2.5 py-1 text-[9px] font-mono text-slate-400 bg-slate-950/60 border border-slate-900 rounded-xl">
+                          <button
+                            onClick={() => {
+                              const filtered = savedProjects.filter(p => 
+                                (p.businessName || "").toLowerCase().includes(projectSearchQuery.toLowerCase())
+                              );
+                              const allChecked = filtered.length > 0 && filtered.every(p => selectedProjectIds.includes(p.projectId));
+                              if (allChecked) {
+                                const filteredIds = filtered.map(p => p.projectId);
+                                setSelectedProjectIds(prev => prev.filter(id => !filteredIds.includes(id)));
+                              } else {
+                                const filteredIds = filtered.map(p => p.projectId);
+                                setSelectedProjectIds(prev => Array.from(new Set([...prev, ...filteredIds])));
+                              }
+                            }}
+                            className="flex items-center gap-1 hover:text-white transition-colors"
+                          >
+                            {(() => {
+                              const filtered = savedProjects.filter(p => 
+                                (p.businessName || "").toLowerCase().includes(projectSearchQuery.toLowerCase())
+                              );
+                              const allChecked = filtered.length > 0 && filtered.every(p => selectedProjectIds.includes(p.projectId));
+                              return allChecked ? (
+                                <CheckSquare size={10} className="text-emerald-400" />
+                              ) : (
+                                <Square size={10} className="text-slate-500" />
+                              );
+                            })()}
+                            <span>Toggle All</span>
+                          </button>
+
+                          {selectedProjectIds.length > 0 && (
+                            <button
+                              onClick={handleBulkDeleteProjects}
+                              disabled={bulkDeleting}
+                              className="flex items-center gap-1 text-rose-400 hover:text-rose-300 transition-colors bg-rose-500/10 hover:bg-rose-500/20 px-2 py-0.5 rounded border border-rose-500/20 font-bold"
+                            >
+                              <Trash2 size={9} />
+                              <span>Bulk Delete ({selectedProjectIds.length})</span>
+                            </button>
+                          )}
+                        </div>
                       )}
                     </div>
 
@@ -1561,6 +1694,7 @@ export default function App() {
                             <AnimatePresence initial={false}>
                               {filteredProjects.map((proj, pi) => {
                                 const isEditing = editingProjectId === proj.projectId;
+                                const isProjChecked = selectedProjectIds.includes(proj.projectId);
                                 return (
                                   <motion.div 
                                     key={proj.projectId || `site_${pi}`}
@@ -1574,6 +1708,27 @@ export default function App() {
                                     transition={{ type: "spring", stiffness: 300, damping: 25 }}
                                     className={`flex items-center justify-between p-2 rounded-xl border transition-all text-xs select-none bg-slate-950/60 ${isEditing ? 'border-indigo-500/50 shadow-indigo-500/5' : 'border-slate-900 hover:border-emerald-500/25'}`}
                                   >
+                                    {/* --- NEW: Checkbox toggle for multi-select --- */}
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        if (isProjChecked) {
+                                          setSelectedProjectIds(prev => prev.filter(id => id !== proj.projectId));
+                                        } else {
+                                          setSelectedProjectIds(prev => [...prev, proj.projectId]);
+                                        }
+                                      }}
+                                      className="p-1 text-slate-500 hover:text-emerald-400 transition-colors mr-1 shrink-0"
+                                      title="Select for bulk action"
+                                      id={`project-checkbox-${proj.projectId}`}
+                                    >
+                                      {isProjChecked ? (
+                                        <CheckSquare size={11} className="text-emerald-400" />
+                                      ) : (
+                                        <Square size={11} className="text-slate-600" />
+                                      )}
+                                    </button>
+
                                     <button
                                       onClick={() => {
                                         setSiteParams({
@@ -1598,7 +1753,7 @@ export default function App() {
                                       }}
                                       className="flex-1 text-left min-w-0"
                                     >
-                                      <h5 className={`font-bold truncate max-w-[140px] flex items-center gap-1 ${isEditing ? 'text-indigo-400' : 'text-slate-100 hover:text-emerald-400'}`}>
+                                      <h5 className={`font-bold truncate max-w-[120px] flex items-center gap-1 ${isEditing ? 'text-indigo-400' : 'text-slate-100 hover:text-emerald-400'}`}>
                                         <span className="truncate">{proj.businessName}</span>
                                         {proj.projectId === 'workspace_draft' && (
                                           <span className="bg-amber-500/10 text-amber-500 border border-amber-500/20 text-[8px] font-mono font-bold px-1 rounded transform scale-90 origin-left shrink-0">DRAFT</span>
@@ -1722,6 +1877,26 @@ export default function App() {
                         >
                           <Download size={11} />
                           <span>Download CSV</span>
+                        </button>
+
+                        {/* --- NEW: Interactive Site Preview Button --- */}
+                        <button
+                          onClick={() => {
+                            const firstPageKey = siteOutput.sitemap?.[0] || 'Home';
+                            setPreviewPage(firstPageKey.toLowerCase());
+                            setPreviewDevice('desktop');
+                            setIsPreviewModalOpen(true);
+                            setSystemLogs(prev => [
+                              `[${new Date().toLocaleTimeString()}] Launched High-Fidelity Responsive Simulator. Serving page '${firstPageKey}'...`,
+                              ...prev
+                            ]);
+                          }}
+                          className="text-[10px] bg-emerald-600 hover:bg-emerald-500 hover:text-slate-950 text-slate-100 font-bold px-3 py-1.5 rounded-xl border border-emerald-500/30 flex items-center gap-1.5 transition-all shadow-md cursor-pointer select-none"
+                          title="Parse and test the interactive sitemap pages inside a responsive view modal"
+                          id="open-website-preview"
+                        >
+                          <Eye size={11} className="text-emerald-400 font-bold" />
+                          <span>Live Preview App</span>
                         </button>
                       </div>
                     )}
@@ -2678,6 +2853,22 @@ ${marketingOutput.body || "body empty"}
                   
                   <div className="flex items-center justify-between border-b border-slate-800 pb-3 mb-4">
                     <span className="text-xs font-black uppercase text-slate-200 font-display">SEO Article Content Output</span>
+                    {seoOutput && !generatingSeo && (
+                      <div className="flex rounded-lg bg-slate-950 p-1 border border-slate-900">
+                        <button 
+                          onClick={() => setSeoTab("preview")}
+                          className={`px-2.5 py-1 text-[10px] font-bold rounded-md transition-colors ${seoTab === 'preview' ? 'bg-slate-900 text-emerald-400' : 'text-slate-500 hover:text-slate-300'}`}
+                        >
+                          Visual Preview
+                        </button>
+                        <button 
+                          onClick={() => setSeoTab("edit")}
+                          className={`px-2.5 py-1 text-[10px] font-bold rounded-md transition-colors ${seoTab === 'edit' ? 'bg-slate-900 text-emerald-400' : 'text-slate-500 hover:text-slate-300'}`}
+                        >
+                          Manual SEO Editor
+                        </button>
+                      </div>
+                    )}
                   </div>
 
                   {generatingSeo ? (
@@ -2687,33 +2878,135 @@ ${marketingOutput.body || "body empty"}
                     </div>
                   ) : seoOutput ? (
                     <div className="space-y-4 flex-1 flex flex-col justify-between">
-                      
-                      <div className="bg-slate-950 p-5 rounded-2xl border border-slate-900 space-y-4 leading-relaxed text-xs">
-                        <div>
-                          <span className="text-[9px] font-mono text-slate-500 uppercase tracking-widest block mb-1">SEO Title Tag</span>
-                          <h4 className="text-sm font-bold text-white select-text">{seoOutput.title || 'Dynamic Keywords Title'}</h4>
-                        </div>
-                        
-                        <div>
-                          <span className="text-[9px] font-mono text-slate-500 uppercase tracking-widest block mb-1">Meta Description</span>
-                          <p className="text-slate-400 select-text leading-normal italic text-xs">"{seoOutput.meta_description || 'Synthesized meta info description text.'}"</p>
-                        </div>
+                      {seoTab === 'preview' ? (
+                        /* Preview mode view */
+                        <div className="bg-slate-950 p-5 rounded-2xl border border-slate-900 space-y-4 leading-relaxed text-xs">
+                          {seoSavedStatus && (
+                            <div className="bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[10px] px-3 py-2 rounded-xl flex items-center gap-2 font-mono">
+                              <CheckCircle size={12} />
+                              <span>SEO manual metadata updates synchronized and finalized in session successfully!</span>
+                            </div>
+                          )}
 
-                        <div>
-                          <span className="text-[9px] font-mono text-slate-500 uppercase tracking-widest block mb-1">Core Article Paragraph Content Body</span>
-                          <div className="p-3 bg-slate-900 rounded-xl border border-slate-855 text-slate-300 font-serif leading-relaxed text-[11px] select-text select-text whitespace-pre-wrap max-h-[160px] overflow-y-auto">
-                            {seoOutput.content || 'Content body parsed.'}
+                          <div>
+                            <span className="text-[9px] font-mono text-slate-500 uppercase tracking-widest block mb-1">SEO Title Tag</span>
+                            <h4 className="text-sm font-bold text-white select-text">{seoOutput.title || 'Dynamic Keywords Title'}</h4>
                           </div>
-                        </div>
-
-                        {seoOutput.schema && (
-                          <div className="pt-2 bg-slate-900/40 p-2.5 rounded-lg text-[9px] font-mono text-slate-500">
-                            <span className="font-bold text-slate-400">Schema.org JSON Data Block:</span>
-                            <pre className="mt-1">{JSON.stringify(seoOutput.schema, null, 2)}</pre>
+                          
+                          <div>
+                            <span className="text-[9px] font-mono text-slate-500 uppercase tracking-widest block mb-1">Meta Description</span>
+                            <p className="text-slate-400 select-text leading-normal italic text-xs">"{seoOutput.meta_description || 'Synthesized meta info description text.'}"</p>
                           </div>
-                        )}
-                      </div>
 
+                          <div>
+                            <span className="text-[9px] font-mono text-slate-500 uppercase tracking-widest block mb-1">Keywords Target List</span>
+                            <div className="flex flex-wrap gap-1">
+                              {seoOutput.keywords ? (
+                                (Array.isArray(seoOutput.keywords) ? seoOutput.keywords : String(seoOutput.keywords).split(',')).map((kw: string, i: number) => (
+                                  <span key={i} className="px-2 py-0.5 bg-slate-900 rounded text-[9px] text-slate-300 font-bold border border-slate-800 font-mono">
+                                    {kw.trim()}
+                                  </span>
+                                ))
+                              ) : (
+                                <span className="text-slate-650 italic text-[10px] font-mono">No individual keywords entered.</span>
+                              )}
+                            </div>
+                          </div>
+
+                          <div>
+                            <span className="text-[9px] font-mono text-slate-500 uppercase tracking-widest block mb-1">Core Article Paragraph Content Body</span>
+                            <div className="p-3 bg-slate-900 rounded-xl border border-slate-855 text-slate-300 font-serif leading-relaxed text-[11px] select-text whitespace-pre-wrap max-h-[180px] overflow-y-auto">
+                              {seoOutput.content || 'Content body parsed.'}
+                            </div>
+                          </div>
+
+                          {seoOutput.schema && (
+                            <div className="pt-2 bg-slate-900/40 p-2.5 rounded-lg text-[9px] font-mono text-slate-500">
+                              <span className="font-bold text-slate-400">Schema.org JSON Data Block:</span>
+                              <pre className="mt-1">{JSON.stringify(seoOutput.schema, null, 2)}</pre>
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        /* Manual SEO Editor Mode */
+                        <div className="bg-slate-950 p-5 rounded-2xl border border-slate-900 space-y-4 leading-relaxed text-xs flex-1 flex flex-col justify-between">
+                          <div className="space-y-4">
+                            <div className="border-b border-slate-900 pb-2.5 flex items-center justify-between">
+                              <span className="text-[10px] font-mono text-indigo-400 tracking-wider font-bold">SEO Sandbox Manual Compiler</span>
+                              <span className="bg-indigo-500/10 text-indigo-400 text-[8px] font-mono px-1.5 py-0.5 rounded border border-indigo-500/20 font-bold">MUTABLE DRAFT</span>
+                            </div>
+
+                            <div>
+                              <label className="text-[9px] font-mono text-slate-500 uppercase tracking-widest block mb-1">Edit SEO Title Tag</label>
+                              <input 
+                                type="text"
+                                className="w-full bg-slate-900 border border-slate-850 focus:border-indigo-500 rounded-xl px-3 py-2 text-xs text-slate-100 outline-none"
+                                value={editedSeoTitle}
+                                onChange={(e) => setEditedSeoTitle(e.target.value)}
+                                placeholder="Enter custom SEO Page title tag..."
+                              />
+                            </div>
+
+                            <div>
+                              <label className="text-[9px] font-mono text-slate-500 uppercase tracking-widest block mb-1">Edit Meta Description</label>
+                              <textarea 
+                                rows={3}
+                                className="w-full bg-slate-900 border border-slate-850 focus:border-indigo-500 rounded-xl px-3 py-2 text-xs text-slate-300 outline-none resize-none leading-normal"
+                                value={editedSeoDescription}
+                                onChange={(e) => setEditedSeoDescription(e.target.value)}
+                                placeholder="Enter custom meta description tag for snippet engines..."
+                              />
+                            </div>
+
+                            <div>
+                              <label className="text-[9px] font-mono text-slate-500 uppercase tracking-widest block mb-1">Edit Keywords (comma-separated)</label>
+                              <input 
+                                type="text"
+                                className="w-full bg-slate-900 border border-slate-850 focus:border-indigo-500 rounded-xl px-3 py-2 text-xs text-slate-200 outline-none font-mono"
+                                value={editedSeoKeywords}
+                                onChange={(e) => setEditedSeoKeywords(e.target.value)}
+                                placeholder="e.g. compliance tool, cross border, eu-us pact"
+                              />
+                            </div>
+
+                            <div>
+                              <label className="text-[9px] font-mono text-slate-500 uppercase tracking-widest block mb-1">Edit Article Paragraph Content Body</label>
+                              <textarea 
+                                rows={6}
+                                className="w-full bg-slate-900 border border-slate-850 focus:border-indigo-500 rounded-xl px-3 py-2 text-xs text-slate-300 outline-none font-serif leading-relaxed max-h-[180px] overflow-y-auto"
+                                value={editedSeoContent}
+                                onChange={(e) => setEditedSeoContent(e.target.value)}
+                                placeholder="Edit core article content text..."
+                              />
+                            </div>
+                          </div>
+
+                          <button
+                            onClick={() => {
+                              const updated = {
+                                ...seoOutput,
+                                title: editedSeoTitle,
+                                meta_description: editedSeoDescription,
+                                keywords: editedSeoKeywords.split(',').map(s => s.trim()).filter(Boolean),
+                                content: editedSeoContent
+                              };
+                              setSeoOutput(updated);
+                              setSeoSavedStatus(true);
+                              setSystemLogs(prev => [
+                                `[${new Date().toLocaleTimeString()}] Completed manual edits in SEO & Article sandbox. Synced metadata fields successfully in-memory.`,
+                                ...prev
+                              ]);
+                              // Autoclose editor and return to view with success notification
+                              setSeoTab("preview");
+                              setTimeout(() => setSeoSavedStatus(false), 4000);
+                            }}
+                            className="w-full py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-slate-950 font-black rounded-xl text-xs uppercase tracking-wider transition-all shadow-md shadow-emerald-950/20 flex items-center justify-center gap-1.5 cursor-pointer mt-3"
+                          >
+                            <CheckCircle size={13} className="text-slate-950" />
+                            <span>Finalize & Sync Article</span>
+                          </button>
+                        </div>
+                      )}
                     </div>
                   ) : (
                     <div className="flex-grow flex flex-col items-center justify-center text-center p-6 border-2 border-dashed border-slate-900 rounded-2xl">
@@ -2867,6 +3160,182 @@ ${marketingOutput.body || "body empty"}
           </button>
         </div>
       </footer>
+
+      {/* --- NEW: High-Fidelity Website Simulator Responsive Preview Modal --- */}
+      {isPreviewModalOpen && siteOutput && (
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-[999] flex items-center justify-center p-4 overflow-hidden animate-fade-in">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95 }}
+            className={`bg-slate-900 border border-slate-800 rounded-3xl w-full max-h-[90vh] flex flex-col shadow-2xl transition-all duration-300 overflow-hidden ${
+              previewDevice === 'desktop' ? 'max-w-5xl' : 
+              previewDevice === 'tablet' ? 'max-w-xl' : 'max-w-[390px]'
+            }`}
+          >
+            {/* Top Frame Control Bar */}
+            <div className="bg-slate-950 px-5 py-3 border-b border-slate-800/80 flex items-center justify-between gap-3 flex-wrap shrink-0">
+              <div className="flex items-center gap-2">
+                <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+                <span className="text-[10px] font-black uppercase text-slate-300 tracking-wider font-mono">Live Website Simulator</span>
+              </div>
+
+              {/* Device Selector Controls */}
+              <div className="flex items-center bg-slate-900 rounded-lg p-0.5 border border-slate-800">
+                <button
+                  onClick={() => setPreviewDevice('desktop')}
+                  className={`p-1.5 rounded transition-colors ${previewDevice === 'desktop' ? 'bg-indigo-600 text-white' : 'text-slate-500 hover:text-slate-300'}`}
+                  title="Desktop View"
+                >
+                  <Monitor size={12} />
+                </button>
+                <button
+                  onClick={() => setPreviewDevice('tablet')}
+                  className={`p-1.5 rounded transition-colors ${previewDevice === 'tablet' ? 'bg-indigo-600 text-white' : 'text-slate-500 hover:text-slate-300'}`}
+                  title="Tablet View"
+                >
+                  <Tablet size={12} />
+                </button>
+                <button
+                  onClick={() => setPreviewDevice('mobile')}
+                  className={`p-1.5 rounded transition-colors ${previewDevice === 'mobile' ? 'bg-indigo-600 text-white' : 'text-slate-500 hover:text-slate-300'}`}
+                  title="Mobile View"
+                >
+                  <Smartphone size={12} />
+                </button>
+              </div>
+
+              {/* Simulated Browser Address Bar */}
+              <div className="flex items-center gap-2 px-3 py-1 bg-slate-900/60 rounded-lg text-[10px] text-slate-450 min-w-[200px] max-w-[320px] font-mono border border-slate-850/65 truncate">
+                <Globe size={9} className="text-emerald-400 shrink-0" />
+                <span className="text-slate-500 font-bold">https://</span>
+                <span className="text-white truncate font-medium">{(siteParams.businessName || 'mubuslink').toLowerCase().replace(/[^a-z0-9]/g, '')}.com</span>
+                <span className="text-emerald-400">/{previewPage}</span>
+              </div>
+
+              {/* Close Button */}
+              <button
+                onClick={() => setIsPreviewModalOpen(false)}
+                className="text-slate-400 hover:text-rose-400 p-1 px-2.5 rounded-lg border border-slate-800 hover:border-rose-500/20 transition-all text-[11px] font-bold shrink-0 bg-slate-900 cursor-pointer select-none"
+              >
+                ✕ Close Frame
+              </button>
+            </div>
+
+            {/* Inner Interactive Webpage Sandbox Viewport */}
+            <div className="flex-1 overflow-y-auto bg-slate-950 flex flex-col p-4 md:p-6 text-slate-100 font-sans">
+              
+              {/* Simulated Global Header & Navigation based on the sitemap */}
+              <div className="border-b border-slate-900 pb-4 mb-6 flex items-center justify-between shrink-0">
+                <span className="text-xs font-black uppercase text-white font-mono tracking-widest flex items-center gap-1">
+                  <span className="text-emerald-400">❖</span> {siteParams.businessName || 'MUBUSLINK'}
+                </span>
+                <div className="hidden sm:flex items-center gap-4 text-[10px] font-mono font-bold text-slate-400">
+                  {(siteOutput.sitemap || []).map((page: string, pi: number) => {
+                    const pageKey = page.toLowerCase();
+                    const isActive = previewPage === pageKey;
+                    return (
+                      <button
+                        key={pi}
+                        onClick={() => setPreviewPage(pageKey)}
+                        className={`transition-colors uppercase tracking-widest ${isActive ? 'text-emerald-450 font-black border-b border-emerald-400/40 pb-0.5' : 'hover:text-slate-200'}`}
+                      >
+                        {page}
+                      </button>
+                    );
+                  })}
+                </div>
+                <button className="px-3 py-1 bg-emerald-500 text-slate-950 font-black tracking-widest text-[8px] uppercase rounded-lg">
+                  Access Portal
+                </button>
+              </div>
+
+              {/* Mobile quick-nav selector helper if viewport is small */}
+              <div className="sm:hidden mb-4 p-2 bg-slate-900 rounded-xl border border-slate-850 flex items-center justify-between shrink-0">
+                <span className="text-[10px] text-slate-500 font-mono">Navigate Page:</span>
+                <select
+                  value={previewPage}
+                  onChange={(e) => setPreviewPage(e.target.value)}
+                  className="bg-slate-950 border border-slate-800 rounded px-2 py-0.5 text-[10px] text-slate-300 font-mono focus:outline-none"
+                >
+                  {(siteOutput.sitemap || []).map((page: string, pi: number) => (
+                    <option key={pi} value={page.toLowerCase()}>{page}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Visual render page body content */}
+              <div className="flex-1">
+                {(() => {
+                  const activePageObj = siteOutput.pages?.[previewPage] || siteOutput.pages?.[previewPage.toLowerCase()] || Object.values(siteOutput.pages || {})[0];
+                  if (!activePageObj) {
+                    return (
+                      <div className="text-center py-12 bg-slate-900/20 rounded-2xl border border-slate-950">
+                        <Smartphone size={24} className="text-slate-600 mx-auto mb-2 animate-bounce" />
+                        <h4 className="text-xs font-bold text-slate-400">Page not structured</h4>
+                        <p className="text-[10px] text-slate-500 mt-1">This page sitemap node does not contain detailed layouts yet.</p>
+                      </div>
+                    );
+                  }
+
+                  // Handle full parsed HTML content block
+                  if (activePageObj.html && activePageObj.html.length > 50) {
+                    return (
+                      <div 
+                        className="prose prose-invert max-w-none text-slate-200"
+                        dangerouslySetInnerHTML={{ __html: activePageObj.html }}
+                      />
+                    );
+                  }
+
+                  // Standard robust custom structure preview representation
+                  return (
+                    <div className="space-y-6">
+                      {/* Hero Section Banner */}
+                      <div className="py-12 text-center max-w-[580px] mx-auto space-y-4">
+                        <span className="px-2.5 py-1 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 font-black text-[9px] uppercase tracking-widest rounded-full">
+                          {previewPage.toUpperCase()} SECTION VIEW
+                        </span>
+                        <h1 className="text-lg md:text-2xl font-black text-white font-display tracking-tight leading-snug">
+                          {previewPage === 'home' ? `Streamlining Risk Protection for ${siteParams.audience}` : `${previewPage.charAt(0).toUpperCase() + previewPage.slice(1)} Solutions`}
+                        </h1>
+                        <p className="text-slate-400 text-xs leading-relaxed">
+                          Swiss-style meticulous compliance protocols custom tailored for {siteParams.audience} in {siteParams.jurisdictions}.
+                        </p>
+                      </div>
+
+                      {/* Display sub-sections */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {(activePageObj.sections || ['Standard Recitals', 'Jurisdictional Map', 'Contact Helpline']).map((secName: string, i: number) => (
+                          <div 
+                            key={i} 
+                            className="bg-slate-900/60 p-5 rounded-2xl border border-slate-850 hover:border-emerald-500/20 transition-colors flex flex-col justify-between"
+                          >
+                            <div>
+                              <span className="text-[9px] font-mono text-emerald-400 font-bold block mb-1">SECTION 0{i + 1}</span>
+                              <h4 className="text-xs font-bold text-slate-100">{secName}</h4>
+                              <p className="text-[10px] text-slate-400 mt-2 leading-relaxed">
+                                Fully synchronized layout styled under custom {siteParams.tone} standard guidelines with modular Swiss widgets.
+                              </p>
+                            </div>
+                            <span className="text-[9px] text-slate-500 tracking-wider uppercase font-mono mt-4 block">ACTIVE REGULATORY PARSER</span>
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* Footer block inside the sandbox */}
+                      <div className="border-t border-slate-900 pt-6 mt-12 text-center text-slate-500 text-[10px]">
+                        &copy; 1999 - 2026 {siteParams.businessName || 'MUBUSLINK'}. All Rights Reserved. Neutral Regulatory Guidelines active.
+                      </div>
+                    </div>
+                  );
+                })()}
+              </div>
+
+            </div>
+          </motion.div>
+        </div>
+      )}
 
     </div>
   );
