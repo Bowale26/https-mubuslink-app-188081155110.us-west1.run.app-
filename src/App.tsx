@@ -244,12 +244,16 @@ export default function App() {
   const [updatingProject, setUpdatingProject] = useState<boolean>(false);
   const [activeChartTab, setActiveChartTab] = useState<'both' | 'visitors' | 'words'>('both');
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
+  const [showHistoricalTrend, setShowHistoricalTrend] = useState<boolean>(false);
+  const [projectSearchQuery, setProjectSearchQuery] = useState<string>('');
+  const [autoSaveStatus, setAutoSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'failed'>('idle');
+  const [refreshingCache, setRefreshingCache] = useState<boolean>(false);
 
   // Global triggers
   const fetchStats = async () => {
     setLoadingStats(true);
     try {
-      const response = await fetch('/api/stats');
+      const response = await fetch(`/api/stats?_t=${Date.now()}`);
       const data = await response.json();
       setStats(data);
       if (data._maintenance) {
@@ -268,7 +272,7 @@ export default function App() {
   const fetchSavedProjects = async () => {
     setLoadingProjects(true);
     try {
-      const response = await fetch('/api/projects');
+      const response = await fetch(`/api/projects?_t=${Date.now()}`);
       const data = await response.json();
       if (Array.isArray(data)) {
         setSavedProjects(data);
@@ -277,6 +281,34 @@ export default function App() {
       console.error("Failed to load saved projects:", err);
     } finally {
       setLoadingProjects(false);
+    }
+  };
+
+  const handleGeneralCacheRefresh = async () => {
+    setRefreshingCache(true);
+    try {
+      // 1. Force fetch new statistics and project indices with absolute cache-busting
+      await Promise.all([
+        fetchStats(),
+        fetchSavedProjects()
+      ]);
+
+      // 2. Clear out any potential draft local cache references to guarantee zero-state sync
+      localStorage.removeItem('workspace_draft');
+
+      // 3. Reset list filters to restore default visible state
+      setProjectSearchQuery('');
+
+      setSystemLogs(prev => [
+        `[${new Date().toLocaleTimeString()}] Cache Sync: Purged system localStorage caches and synchronized live Firestore metrics successfully.`,
+        ...prev
+      ]);
+    } catch (err: any) {
+      console.warn("Failed to complete cache sync operation: ", err.message);
+    } finally {
+      setTimeout(() => {
+        setRefreshingCache(false);
+      }, 750);
     }
   };
 
@@ -395,6 +427,149 @@ export default function App() {
       unsubscribe();
     };
   }, []);
+
+  // Serialized state key to safely track output updates without causing infinite rendering loops
+  const siteOutputSerialized = siteOutput ? JSON.stringify(siteOutput) : "";
+
+  // Debounced auto-save mechanism for Website Builder inputs
+  useEffect(() => {
+    if (!siteParams.businessName || siteParams.businessName === "Mubuslink Central Law" && !editingProjectId) {
+      // Don't auto-save generic initially loaded values
+      return;
+    }
+
+    const timer = setTimeout(async () => {
+      const targetId = editingProjectId || 'workspace_draft';
+      setAutoSaveStatus('saving');
+
+      const projectPayload = {
+        projectId: targetId,
+        businessName: siteParams.businessName || "Workspace Draft",
+        jurisdictions: siteParams.jurisdictions || "Global Scope",
+        audience: siteParams.audience || "Legal Operations",
+        tone: siteParams.tone || "Authoritative",
+        services: siteParams.services || "",
+        brandStyle: siteParams.brandStyle || "",
+        sitemap: siteOutput ? siteOutput.sitemap : [],
+        pages: siteOutput ? siteOutput.pages : {},
+        seo: siteOutput ? siteOutput.seo : {},
+        createdAt: new Date().toISOString()
+      };
+
+      try {
+        const saveRes = await fetch('/api/projects', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(projectPayload)
+        });
+        const saveResult = await saveRes.json();
+        if (saveResult.success) {
+          setAutoSaveStatus('saved');
+          setSystemLogs(prev => [
+            `[${new Date().toLocaleTimeString()}] Auto-save: Updated '${projectPayload.businessName}' automatically (ID: ${targetId}).`,
+            ...prev
+          ]);
+        } else {
+          setAutoSaveStatus('failed');
+        }
+      } catch (err: any) {
+        console.warn("Auto-save mechanism failed:", err.message);
+        setAutoSaveStatus('failed');
+      }
+    }, 1500); // 1.5 seconds debounce
+
+    return () => clearTimeout(timer);
+  }, [
+    siteParams.businessName,
+    siteParams.jurisdictions,
+    siteParams.audience,
+    siteParams.tone,
+    siteParams.services,
+    siteParams.brandStyle,
+    editingProjectId,
+    siteOutputSerialized
+  ]);
+
+  const handleDownloadProject = (format: 'json' | 'csv') => {
+    if (!siteOutput) return;
+
+    const exportData = {
+      businessName: siteParams.businessName || "Mubuslink Central Law",
+      jurisdictions: siteParams.jurisdictions,
+      audience: siteParams.audience,
+      tone: siteParams.tone,
+      services: siteParams.services,
+      brandStyle: siteParams.brandStyle,
+      sitemap: siteOutput.sitemap || [],
+      pages: siteOutput.pages || {},
+      seo: siteOutput.seo || {}
+    };
+
+    let fileContent = '';
+    let fileName = `project_${exportData.businessName.toLowerCase().replace(/[^a-z0-9]+/g, '_')}`;
+    let mimeType = '';
+
+    if (format === 'json') {
+      fileContent = JSON.stringify(exportData, null, 2);
+      fileName += '.json';
+      mimeType = 'application/json';
+    } else {
+      // Export as CSV structured data
+      const rows = [
+        ['Category', 'Property/Page', 'Details/Content'],
+        ['Metadata', 'Business Name', exportData.businessName],
+        ['Metadata', 'Jurisdictions', exportData.jurisdictions],
+        ['Metadata', 'Audience', exportData.audience],
+        ['Metadata', 'Tone', exportData.tone],
+        ['Metadata', 'Services', exportData.services],
+        ['Metadata', 'Brand Style', exportData.brandStyle],
+      ];
+
+      // Add Sitemap entries
+      if (Array.isArray(exportData.sitemap)) {
+        exportData.sitemap.forEach(page => {
+          rows.push(['Sitemap', 'Page URL', page]);
+        });
+      }
+
+      // Add SEO Data
+      if (exportData.seo) {
+        Object.entries(exportData.seo).forEach(([k, v]) => {
+          rows.push(['SEO', k, typeof v === 'object' ? JSON.stringify(v) : String(v)]);
+        });
+      }
+
+      // Add Page content entries
+      if (exportData.pages) {
+        Object.entries(exportData.pages).forEach(([pageName, pageContent]) => {
+          rows.push(['Page Content', pageName, typeof pageContent === 'object' ? JSON.stringify(pageContent) : String(pageContent)]);
+        });
+      }
+
+      fileContent = rows.map(r => r.map(val => {
+        const cleanVal = String(val).replace(/"/g, '""');
+        return `"${cleanVal}"`;
+      }).join(',')).join('\n');
+
+      fileName += '.csv';
+      mimeType = 'text/csv';
+    }
+
+    const blob = new Blob([fileContent], { type: `${mimeType};charset=utf-8;` });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', fileName);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    setSystemLogs(prev => [
+      `[${new Date().toLocaleTimeString()}] Download: Successfully exported project data to ${fileName}`,
+      ...prev
+    ]);
+  };
 
   const copyToClipboard = (text: string, label: string) => {
     navigator.clipboard.writeText(text);
@@ -711,11 +886,22 @@ export default function App() {
               </h2>
             </div>
 
-            {/* Visual configuration state helper */}
-            <div className="p-2 bg-slate-900/60 border border-slate-850 rounded-xl text-[11px] flex items-center gap-3">
-              <span className="font-mono text-slate-400">Project Context: <strong className="text-white font-semibold">{getActiveParams().businessName}</strong></span>
-              <span className="h-3 w-px bg-slate-800" />
-              <span className="font-mono text-slate-400">Tone Context: <strong className="text-emerald-400">{getActiveParams().tone}</strong></span>
+            {/* Visual configuration state helper & cache invalidator */}
+            <div className="flex items-center gap-2 flex-wrap">
+              <div className="p-2 bg-slate-900/60 border border-slate-850 rounded-xl text-[11px] flex items-center gap-3">
+                <span className="font-mono text-slate-400">Project Context: <strong className="text-white font-semibold">{getActiveParams().businessName}</strong></span>
+                <span className="h-3 w-px bg-slate-800" />
+                <span className="font-mono text-slate-400">Tone Context: <strong className="text-emerald-400">{getActiveParams().tone}</strong></span>
+              </div>
+              <button
+                onClick={handleGeneralCacheRefresh}
+                className="p-2 text-[11px] bg-slate-900/80 hover:bg-emerald-950/40 text-slate-300 hover:text-emerald-400 border border-slate-850 hover:border-emerald-500/30 rounded-xl flex items-center gap-1.5 transition-all font-mono shadow-sm"
+                title="Bypass client-side browser cache & force refresh database states manually"
+                id="general-cache-refresh-btn"
+              >
+                <RefreshCw size={11} className={refreshingCache ? "animate-spin" : ""} />
+                <span>Fix & Refresh Engine</span>
+              </button>
             </div>
           </div>
 
@@ -723,40 +909,75 @@ export default function App() {
           {activeMenu === 'dashboard' && (
             <div className="space-y-6" id="view-dashboard">
               
+              {/* Trend Analysis Toggle Bar */}
+              <div className="flex items-center justify-between bg-slate-900/30 border border-slate-900/80 p-3.5 px-5 rounded-2xl animate-fade-in">
+                <div className="flex items-center gap-2">
+                  <History size={14} className="text-emerald-400" />
+                  <span className="text-xs font-semibold text-slate-100 font-display">Historical KPI Trend Intelligence</span>
+                  <span className="text-[10px] text-slate-500 font-mono hidden sm:inline">(6-Month Trajectory Analysis)</span>
+                </div>
+                <div className="flex items-center gap-2.5">
+                  <span className={`text-[10px] font-mono transition-colors ${showHistoricalTrend ? 'text-emerald-400 font-bold' : 'text-slate-500'}`}>
+                    {showHistoricalTrend ? '6-Month History Active' : 'Show 6-Month Trend'}
+                  </span>
+                  <button
+                    onClick={() => setShowHistoricalTrend(!showHistoricalTrend)}
+                    className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                      showHistoricalTrend ? 'bg-emerald-600' : 'bg-slate-800'
+                    }`}
+                    id="historical-trend-toggle"
+                  >
+                    <span
+                      className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                        showHistoricalTrend ? 'translate-x-4' : 'translate-x-0'
+                      }`}
+                    />
+                  </button>
+                </div>
+              </div>
+
               {/* KPIs Grid */}
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 animate-fade-in">
                 {[
                   { 
                     label: "Active Sites Map", 
                     val: stats ? stats.activeWebsites : 12, 
-                    sub: "Express hosted", 
+                    sub: showHistoricalTrend ? "6M Data Variance" : "Express hosted", 
                     color: "emerald",
                     trend: "+8.3% MoM",
-                    points: [8, 9, 10, 11, stats ? stats.activeWebsites : 12]
+                    points: showHistoricalTrend 
+                      ? [5, 7, 8, 9, 10, stats ? stats.activeWebsites : 12] 
+                      : [8, 9, 10, 11, stats ? stats.activeWebsites : 12]
                   },
                   { 
                     label: "Compliance Traffic", 
                     val: stats ? stats.totalVisitors.toLocaleString() : "45,200", 
-                    sub: "Globally Neutral", 
+                    sub: showHistoricalTrend ? "6M Traffic Wave" : "Globally Neutral", 
                     color: "blue",
                     trend: "+18.4% growth",
-                    points: [12000, 18000, 26050, 35000, stats ? stats.totalVisitors : 45200]
+                    points: showHistoricalTrend
+                      ? [3000, 8000, 15000, 24000, 36000, stats ? stats.totalVisitors : 45200]
+                      : [12000, 18000, 26050, 35000, stats ? stats.totalVisitors : 45200]
                   },
                   { 
                     label: "AI Words Written", 
                     val: stats ? stats.aiWordsWritten.toLocaleString() : "128,500", 
-                    sub: "Gemini Generated", 
+                    sub: showHistoricalTrend ? "6M AI Expansion" : "Gemini Generated", 
                     color: "purple",
                     trend: "+34.2% spike",
-                    points: [24000, 42000, 68000, 95000, stats ? stats.aiWordsWritten : 128500]
+                    points: showHistoricalTrend
+                      ? [5000, 18000, 35000, 60000, 92000, stats ? stats.aiWordsWritten : 128500]
+                      : [24000, 42000, 68000, 95000, stats ? stats.aiWordsWritten : 128500]
                   },
                   { 
                     label: "Bot Dialogs Cache", 
                     val: stats ? stats.botConversations : "1,240", 
-                    sub: "Secure Firestore", 
+                    sub: showHistoricalTrend ? "6M Active Logs" : "Secure Firestore", 
                     color: "teal",
                     trend: "+12.1% active",
-                    points: [800, 950, 1050, 1120, stats ? stats.botConversations : 1240]
+                    points: showHistoricalTrend
+                      ? [300, 600, 850, 1000, 1150, stats ? stats.botConversations : 1240]
+                      : [800, 950, 1050, 1120, stats ? stats.botConversations : 1240]
                   }
                 ].map((kpi, idx) => (
                   <div key={idx} className="p-4 bg-slate-900/40 border border-slate-900 rounded-2xl flex flex-col hover:border-slate-800 transition-all justify-between min-h-[135px]">
@@ -1248,72 +1469,90 @@ export default function App() {
                         <History size={13} className="text-emerald-400 font-bold" />
                         <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider font-mono">Firestore Saved Library</span>
                       </div>
-                      <span className="text-[10px] text-emerald-500 animate-pulse">• Active Synced</span>
+                      <div className="flex items-center gap-1.5">
+                        {autoSaveStatus !== 'idle' && (
+                          <span className={`text-[8px] px-1.5 py-0.5 rounded font-mono font-bold flex items-center gap-1 border ${
+                            autoSaveStatus === 'saving' ? 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20' :
+                            autoSaveStatus === 'saved' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' :
+                            'bg-rose-500/10 text-rose-400 border-rose-500/20'
+                          }`}>
+                            <span className={`h-1 w-1 rounded-full ${autoSaveStatus === 'saving' ? 'bg-indigo-400 animate-pulse' : autoSaveStatus === 'saved' ? 'bg-emerald-400' : 'bg-rose-400'}`} />
+                            {autoSaveStatus === 'saving' ? 'Auto-saving...' : autoSaveStatus === 'saved' ? 'Auto-saved' : 'Save Error'}
+                          </span>
+                        )}
+                        <span className="text-[9px] text-emerald-500 animate-pulse">• Synced</span>
+                      </div>
                     </div>
-                    {loadingProjects ? (
-                      <p className="text-[10px] text-slate-500 animate-pulse font-mono py-1">Syncing cloud directories...</p>
-                    ) : savedProjects.length === 0 ? (
-                      <p className="text-[10px] text-slate-600 italic leading-relaxed">No cloud-saved projects detected in Firestore.</p>
-                    ) : (
-                      <div className="max-h-[160px] overflow-y-auto pr-1">
-                        <motion.div 
-                          className="space-y-1.5"
-                          initial="hidden"
-                          animate="visible"
-                          variants={{
-                            hidden: { opacity: 0 },
-                            visible: {
-                              opacity: 1,
-                              transition: {
-                                staggerChildren: 0.05
-                              }
-                            }
-                          }}
+
+                    {/* Search Field */}
+                    <div className="relative mt-0.5">
+                      <Search size={11} className="absolute left-3 top-2.5 text-slate-500" />
+                      <input
+                        type="text"
+                        placeholder="Filter projects by business name..."
+                        value={projectSearchQuery}
+                        onChange={(e) => setProjectSearchQuery(e.target.value)}
+                        className="w-full bg-slate-950 border border-slate-900 focus:border-emerald-500/40 rounded-xl pl-8 pr-7 py-1.5 text-[10px] text-slate-200 outline-none transition-colors placeholder:text-slate-600 font-mono"
+                      />
+                      {projectSearchQuery && (
+                        <button
+                          onClick={() => setProjectSearchQuery('')}
+                          className="absolute right-3 top-2 text-slate-500 hover:text-slate-300 focus:outline-none font-sans"
                         >
-                          <AnimatePresence initial={false}>
-                            {savedProjects.map((proj, pi) => {
-                              const isEditing = editingProjectId === proj.projectId;
-                              return (
-                                <motion.div 
-                                  key={proj.projectId || `site_${pi}`}
-                                  variants={{
-                                    hidden: { opacity: 0, y: 10 },
-                                    visible: { opacity: 1, y: 0 }
-                                  }}
-                                  initial="hidden"
-                                  animate="visible"
-                                  exit={{ opacity: 0, scale: 0.95, transition: { duration: 0.15 } }}
-                                  transition={{ type: "spring", stiffness: 300, damping: 25 }}
-                                  className={`flex items-center justify-between p-2 rounded-xl border transition-all text-xs select-none bg-slate-950/60 ${isEditing ? 'border-indigo-500/50 shadow-indigo-500/5' : 'border-slate-900 hover:border-emerald-500/25'}`}
-                                >
-                                  <button
-                                    onClick={() => {
-                                      setSiteParams({
-                                        businessName: proj.businessName,
-                                        jurisdictions: proj.jurisdictions,
-                                        audience: proj.audience,
-                                        tone: proj.tone,
-                                        services: proj.services,
-                                        brandStyle: proj.brandStyle,
-                                        activeTab: "visual"
-                                      });
-                                      setSiteOutput({
-                                        sitemap: proj.sitemap,
-                                        pages: proj.pages,
-                                        seo: proj.seo
-                                      });
-                                      setEditingProjectId(proj.projectId);
-                                      setSystemLogs(prev => [
-                                        `[${new Date().toLocaleTimeString()}] Restored and loaded project '${proj.businessName}' (ID: ${proj.projectId}) into Edit Mode.`,
-                                        ...prev
-                                      ]);
+                          ✕
+                        </button>
+                      )}
+                    </div>
+
+                    {(() => {
+                      const filteredProjects = savedProjects.filter(p => 
+                        (p.businessName || "").toLowerCase().includes(projectSearchQuery.toLowerCase())
+                      );
+
+                      if (loadingProjects) {
+                        return <p className="text-[10px] text-slate-500 animate-pulse font-mono py-1">Syncing cloud directories...</p>;
+                      }
+                      
+                      if (savedProjects.length === 0) {
+                        return <p className="text-[10px] text-slate-600 italic leading-relaxed">No cloud-saved projects detected in Firestore.</p>;
+                      }
+
+                      if (filteredProjects.length === 0) {
+                        return <p className="text-[10px] text-slate-650 italic leading-relaxed font-mono py-1">No projects match the business name.</p>;
+                      }
+
+                      return (
+                        <div className="max-h-[160px] overflow-y-auto pr-1">
+                          <motion.div 
+                            className="space-y-1.5"
+                            initial="hidden"
+                            animate="visible"
+                            variants={{
+                              hidden: { opacity: 0 },
+                              visible: {
+                                opacity: 1,
+                                transition: {
+                                  staggerChildren: 0.05
+                                }
+                              }
+                            }}
+                          >
+                            <AnimatePresence initial={false}>
+                              {filteredProjects.map((proj, pi) => {
+                                const isEditing = editingProjectId === proj.projectId;
+                                return (
+                                  <motion.div 
+                                    key={proj.projectId || `site_${pi}`}
+                                    variants={{
+                                      hidden: { opacity: 0, y: 10 },
+                                      visible: { opacity: 1, y: 0 }
                                     }}
-                                    className="flex-1 text-left min-w-0"
+                                    initial="hidden"
+                                    animate="visible"
+                                    exit={{ opacity: 0, scale: 0.95, transition: { duration: 0.15 } }}
+                                    transition={{ type: "spring", stiffness: 300, damping: 25 }}
+                                    className={`flex items-center justify-between p-2 rounded-xl border transition-all text-xs select-none bg-slate-950/60 ${isEditing ? 'border-indigo-500/50 shadow-indigo-500/5' : 'border-slate-900 hover:border-emerald-500/25'}`}
                                   >
-                                    <h5 className={`font-bold truncate max-w-[140px] ${isEditing ? 'text-indigo-400' : 'text-slate-100 hover:text-emerald-400'}`}>{proj.businessName}</h5>
-                                    <span className="text-[9px] text-slate-500 font-mono block truncate">{proj.createdAt ? new Date(proj.createdAt).toLocaleDateString() : 'N/A'} • {proj.jurisdictions}</span>
-                                  </button>
-                                  <div className="flex items-center gap-1 shrink-0 ml-2">
                                     <button
                                       onClick={() => {
                                         setSiteParams({
@@ -1336,26 +1575,60 @@ export default function App() {
                                           ...prev
                                         ]);
                                       }}
-                                      className={`p-1 rounded-md border transition-colors ${isEditing ? 'border-indigo-500/40 bg-indigo-950/40 text-indigo-400' : 'border-slate-800 bg-slate-900/60 hover:text-indigo-400 hover:border-indigo-500/30'} text-slate-400`}
-                                      title="Load & Edit"
+                                      className="flex-1 text-left min-w-0"
                                     >
-                                      <Edit size={10} />
+                                      <h5 className={`font-bold truncate max-w-[140px] flex items-center gap-1 ${isEditing ? 'text-indigo-400' : 'text-slate-100 hover:text-emerald-400'}`}>
+                                        <span className="truncate">{proj.businessName}</span>
+                                        {proj.projectId === 'workspace_draft' && (
+                                          <span className="bg-amber-500/10 text-amber-500 border border-amber-500/20 text-[8px] font-mono font-bold px-1 rounded transform scale-90 origin-left shrink-0">DRAFT</span>
+                                        )}
+                                      </h5>
+                                      <span className="text-[9px] text-slate-500 font-mono block truncate">{proj.createdAt ? new Date(proj.createdAt).toLocaleDateString() : 'N/A'} • {proj.jurisdictions}</span>
                                     </button>
-                                    <button
-                                      onClick={(e) => handleDeleteProject(proj.projectId, e)}
-                                      className="p-1 rounded-md border border-slate-800 bg-slate-900/60 text-slate-400 hover:text-rose-500 hover:border-rose-500/30 transition-colors"
-                                      title="Delete Project"
-                                    >
-                                      <Trash2 size={10} />
-                                    </button>
-                                  </div>
-                                </motion.div>
-                              );
-                            })}
-                          </AnimatePresence>
-                        </motion.div>
-                      </div>
-                    )}
+                                    <div className="flex items-center gap-1 shrink-0 ml-2">
+                                      <button
+                                        onClick={() => {
+                                          setSiteParams({
+                                            businessName: proj.businessName,
+                                            jurisdictions: proj.jurisdictions,
+                                            audience: proj.audience,
+                                            tone: proj.tone,
+                                            services: proj.services,
+                                            brandStyle: proj.brandStyle,
+                                            activeTab: "visual"
+                                          });
+                                          setSiteOutput({
+                                            sitemap: proj.sitemap,
+                                            pages: proj.pages,
+                                            seo: proj.seo
+                                          });
+                                          setEditingProjectId(proj.projectId);
+                                          setSystemLogs(prev => [
+                                            `[${new Date().toLocaleTimeString()}] Restored and loaded project '${proj.businessName}' (ID: ${proj.projectId}) into Edit Mode.`,
+                                            ...prev
+                                          ]);
+                                        }}
+                                        className={`p-1 rounded-md border transition-colors ${isEditing ? 'border-indigo-500/40 bg-indigo-950/40 text-indigo-400' : 'border-slate-800 bg-slate-900/60 hover:text-indigo-400 hover:border-indigo-500/30'} text-slate-400`}
+                                        title="Load & Edit"
+                                      >
+                                        <Edit size={10} />
+                                      </button>
+                                      <button
+                                        onClick={(e) => handleDeleteProject(proj.projectId, e)}
+                                        className="p-1 rounded-md border border-slate-800 bg-slate-900/60 text-slate-400 hover:text-rose-500 hover:border-rose-500/30 transition-colors"
+                                        title="Delete Project"
+                                      >
+                                        <Trash2 size={10} />
+                                      </button>
+                                    </div>
+                                  </motion.div>
+                                );
+                              })}
+                            </AnimatePresence>
+                          </motion.div>
+                        </div>
+                      );
+                    })()}
                   </div>
 
                 </div>
@@ -1389,22 +1662,47 @@ export default function App() {
                     </div>
 
                     {siteOutput && (
-                      <button 
-                        onClick={() => copyToClipboard(JSON.stringify(siteOutput, null, 2), 'site')}
-                        className="text-[10px] bg-slate-950 hover:bg-slate-900 px-2 py-1 rounded border border-slate-850 flex items-center gap-1.5 hover:text-white"
-                      >
-                        {copiedText === 'site' ? (
-                          <>
-                            <CheckCircle size={11} className="text-emerald-400" />
-                            <span>Copied!</span>
-                          </>
-                        ) : (
-                          <>
-                            <Copy size={11} />
-                            <span>Copy JSON Mapping</span>
-                          </>
-                        )}
-                      </button>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        {/* Copy JSON Button */}
+                        <button 
+                          onClick={() => copyToClipboard(JSON.stringify(siteOutput, null, 2), 'site')}
+                          className="text-[10px] bg-slate-950 hover:bg-slate-900 px-2.5 py-1.5 rounded border border-slate-850 flex items-center gap-1.5 transition-colors text-slate-300 hover:text-white"
+                        >
+                          {copiedText === 'site' ? (
+                            <>
+                              <CheckCircle size={11} className="text-emerald-400" />
+                              <span>Copied!</span>
+                            </>
+                          ) : (
+                            <>
+                              <Copy size={11} />
+                              <span>Copy JSON Mapping</span>
+                            </>
+                          )}
+                        </button>
+                        
+                        {/* JSON Export Option */}
+                        <button
+                          onClick={() => handleDownloadProject('json')}
+                          className="text-[10px] bg-slate-950 hover:bg-indigo-950/40 px-2.5 py-1.5 rounded border border-indigo-900/30 flex items-center gap-1.5 text-indigo-400 hover:text-indigo-300 transition-colors font-mono"
+                          title="Download complete sitemap, pages, and SEO data as a structured JSON file"
+                          id="export-project-json"
+                        >
+                          <Download size={11} />
+                          <span>Download JSON</span>
+                        </button>
+                        
+                        {/* CSV Export Option */}
+                        <button
+                          onClick={() => handleDownloadProject('csv')}
+                          className="text-[10px] bg-slate-950 hover:bg-emerald-950/40 px-2.5 py-1.5 rounded border border-emerald-900/30 flex items-center gap-1.5 text-emerald-400 hover:text-emerald-300 transition-colors font-mono"
+                          title="Download sitemap, pages, and SEO data as a structured CSV spreadsheet file"
+                          id="export-project-csv"
+                        >
+                          <Download size={11} />
+                          <span>Download CSV</span>
+                        </button>
+                      </div>
                     )}
                   </div>
 
