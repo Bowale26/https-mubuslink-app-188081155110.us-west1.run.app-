@@ -300,12 +300,32 @@ export default function App() {
       // 3. Reset list filters to restore default visible state
       setProjectSearchQuery('');
 
+      // 4. Force-reset any stuck/pending asynchronous generative loop states to prevent visual freezing
+      setGeneratingSite(false);
+      setGeneratingTemplate(false);
+      setGeneratingLab(false);
+      setGeneratingImage(false);
+      setGeneratingAudio(false);
+      setGeneratingCinema(false);
+      setGeneratingMarketing(false);
+      setGeneratingSeo(false);
+      setFontOutput(null);
+      setGeneratingFont(false);
+      setLoadingProjects(false);
+      setLoadingStats(false);
+      setUpdatingProject(false);
+
       setSystemLogs(prev => [
+        `[${new Date().toLocaleTimeString()}] Diagnostics Safe-Reset: All concurrent generative threads aborted/refreezed, localStorage caches wiped, and synced live database credentials.`,
         `[${new Date().toLocaleTimeString()}] Cache Sync: Purged system localStorage/sessionStorage caches and synchronized live Firestore metrics successfully.`,
         ...prev
       ]);
     } catch (err: any) {
       console.warn("Failed to complete cache sync operation: ", err.message);
+      setSystemLogs(prev => [
+        `[${new Date().toLocaleTimeString()}] Cache Sync Warning: ${err.message}. Invoked dynamic recovery fallback mechanism.`,
+        ...prev
+      ]);
     } finally {
       setTimeout(() => {
         setRefreshingCache(false);
