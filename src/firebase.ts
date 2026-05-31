@@ -36,8 +36,8 @@ const app = initializeApp({
   authDomain: getSecureAuthDomain()
 });
 
-// Initialize FireStore using the correct database instance ID if specified and not default
-export const db = firebaseConfig.firestoreDatabaseId && firebaseConfig.firestoreDatabaseId !== "(default)"
+// Initialize the database instance using the database ID from configuration if specified
+export const db = firebaseConfig.firestoreDatabaseId 
   ? getFirestore(app, firebaseConfig.firestoreDatabaseId)
   : getFirestore(app);
 

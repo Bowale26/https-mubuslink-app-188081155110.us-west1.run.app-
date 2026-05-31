@@ -293,14 +293,15 @@ export default function App() {
         fetchSavedProjects()
       ]);
 
-      // 2. Clear out any potential draft local cache references to guarantee zero-state sync
-      localStorage.removeItem('workspace_draft');
+      // 2. Clear out all local browser caches (localStorage and sessionStorage) to guarantee zero-state sync
+      localStorage.clear();
+      sessionStorage.clear();
 
       // 3. Reset list filters to restore default visible state
       setProjectSearchQuery('');
 
       setSystemLogs(prev => [
-        `[${new Date().toLocaleTimeString()}] Cache Sync: Purged system localStorage caches and synchronized live Firestore metrics successfully.`,
+        `[${new Date().toLocaleTimeString()}] Cache Sync: Purged system localStorage/sessionStorage caches and synchronized live Firestore metrics successfully.`,
         ...prev
       ]);
     } catch (err: any) {
